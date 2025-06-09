@@ -1,0 +1,22 @@
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: pocketbase
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./pb_data:/pb/pb_data
+      - ./pb_hooks:/pb/pb_hooks
+    restart: unless-stopped
+  app:
+    build:
+      context: app
+    container_name: doorlock_app
+    ports:
+      - "8090:80"
+    environment:
+      - POCKETBASE_URL=http://localhost:8080
+    depends_on:
+      - pocketbase
