@@ -248,6 +248,6 @@ class _LocksPageState extends State<LocksPage> {
 void windowOpenHtmlContent(String encodedHtml) {
   // Use JS interop to open a new window and write the HTML content (Flutter web only, no dart:html)
   // Fix: properly escape single quotes in the JS string to avoid syntax errors
-  final js = "var w = window.open(); w.document.write(decodeURIComponent('" + encodedHtml.replaceAll("'", "\\'") + "')); w.document.close();";
+  final js = "var w = window.open(); w.document.write(decodeURIComponent('${encodedHtml.replaceAll("'", "\\'")}')); w.document.close();";
   js_util.callMethod(js_util.globalThis, 'eval', [js]);
 }

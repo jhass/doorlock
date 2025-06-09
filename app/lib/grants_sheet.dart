@@ -66,7 +66,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
     bool submitting = false;
     String name = '';
 
-    String _formatDateTime(DateTime? dt) {
+    String formatDateTime(DateTime? dt) {
       if (dt == null) return '';
       return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
              '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -107,7 +107,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           hintText: 'Select start date/time',
                         ),
                         controller: TextEditingController(
-                          text: _formatDateTime(notBefore),
+                          text: formatDateTime(notBefore),
                         ),
                         onTap: () async {
                           final now = DateTime.now();
@@ -144,7 +144,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           hintText: 'Select end date/time',
                         ),
                         controller: TextEditingController(
-                          text: _formatDateTime(notAfter),
+                          text: formatDateTime(notAfter),
                         ),
                         onTap: () async {
                           final now = DateTime.now();
@@ -244,7 +244,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
     bool submitting = false;
     String name = grant['name'] ?? '';
 
-    String _formatDateTime(DateTime? dt) {
+    String formatDateTime(DateTime? dt) {
       if (dt == null) return '';
       return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
              '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -286,7 +286,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           hintText: 'Select start date/time',
                         ),
                         controller: TextEditingController(
-                          text: _formatDateTime(notBefore),
+                          text: formatDateTime(notBefore),
                         ),
                         onTap: () async {
                           final now = DateTime.now();
@@ -322,7 +322,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           hintText: 'Select end date/time',
                         ),
                         controller: TextEditingController(
-                          text: _formatDateTime(notAfter),
+                          text: formatDateTime(notAfter),
                         ),
                         onTap: () async {
                           final now = DateTime.now();
