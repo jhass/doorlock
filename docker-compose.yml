@@ -9,6 +9,7 @@ services:
     volumes:
       - ./pb_data:/pb/pb_data
       - ./pb_hooks:/pb/pb_hooks
+      - ./pb_migrations:/pb/pb_migrations
     restart: unless-stopped
   app:
     build:
