@@ -1,0 +1,48 @@
+name: Doorlock Development Environment
+description: Environment configuration for Doorlock development with Flutter and PocketBase
+
+setup:
+  # Install Flutter SDK for development
+  - name: Install Flutter SDK
+    run: |
+      # Download and install Flutter SDK
+      cd /tmp
+      wget -q https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.27.1-stable.tar.xz
+      tar xf flutter_linux_3.27.1-stable.tar.xz
+      # Add Flutter to PATH for this session
+      echo "/tmp/flutter/bin" >> $GITHUB_PATH
+      # Verify installation
+      /tmp/flutter/bin/flutter doctor
+
+  # Install project dependencies
+  - name: Install Flutter dependencies
+    run: |
+      cd ${{ github.workspace }}/app
+      flutter pub get
+
+  # Set up Docker for PocketBase development
+  - name: Set up Docker environment
+    run: |
+      # Ensure Docker is available
+      docker --version
+      docker compose version
+
+environment:
+  # Environment variables for development
+  FLUTTER_ROOT: /tmp/flutter
+  PATH: "/tmp/flutter/bin:$PATH"
+  POCKETBASE_URL: "http://localhost:8080"
+
+# Tools and packages this project uses
+tools:
+  - flutter
+  - docker
+  - docker-compose
+  - make
+  - bash
+
+# Project-specific configuration
+project:
+  type: flutter
+  backend: pocketbase
+  development_mode: docker-compose
