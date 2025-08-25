@@ -8,7 +8,6 @@ This development setup has been created to enable efficient frontend development
 - `scripts/setup-dev.sh` - One-command backend setup
 - `scripts/start-frontend.sh` - Start frontend with hot reload
 - `scripts/restart-backend.sh` - Restart backend after changes
-- `scripts/install-flutter.sh` - Flutter installation guide
 
 ### Configuration Files
 - `docker-compose.dev.yml` - Development-specific Docker setup

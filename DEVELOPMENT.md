@@ -21,9 +21,28 @@ make dev-start      # Start frontend development
 ### Option 1: Local Flutter Setup (Recommended)
 
 1. **Install Flutter SDK**
+   
+   Due to network restrictions, automatic Flutter installation is not available.
+   Please follow these manual steps to install Flutter:
+   
+   a. Download Flutter SDK:
+   - Visit: https://docs.flutter.dev/get-started/install/linux
+   - Or use this direct link: https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.27.1-stable.tar.xz
+   
+   b. Extract to /tmp/flutter:
    ```bash
-   ./scripts/install-flutter.sh
+   tar xf flutter_linux_*-stable.tar.xz
+   mv flutter /tmp/flutter
+   ```
+   
+   c. Add to your PATH:
+   ```bash
    export PATH="/tmp/flutter/bin:$PATH"
+   ```
+   
+   d. Verify installation:
+   ```bash
+   flutter doctor
    ```
 
 2. **Start PocketBase Backend**
@@ -38,7 +57,9 @@ make dev-start      # Start frontend development
    flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8090
    ```
 
-### Option 2: Docker-based Setup
+### Option 2: Docker-based Setup (Alternative)
+
+If you prefer not to install Flutter locally, or if Flutter installation is not possible in your environment, you can use the Docker-based setup. The development scripts will automatically use Docker if Flutter is not available locally.
 
 1. **Initial Setup**
    ```bash
@@ -103,7 +124,6 @@ For development, this points to the local PocketBase instance.
 - `./scripts/setup-dev.sh` - Start PocketBase backend
 - `./scripts/start-frontend.sh` - Start Flutter frontend (tries local first, then Docker)
 - `./scripts/restart-backend.sh` - Restart backend after changes
-- `./scripts/install-flutter.sh` - Install Flutter SDK locally
 
 ## Debugging
 

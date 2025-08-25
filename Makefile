@@ -1,4 +1,4 @@
-.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean flutter-install test-setup
+.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean test-setup
 
 help: ## Show this help message
 	@echo "Doorlock Development Commands:"
@@ -24,9 +24,6 @@ dev-logs: ## Show development logs
 dev-clean: ## Clean up development environment (removes data!)
 	docker compose -f docker-compose.dev.yml down -v
 	rm -rf pb_data
-
-flutter-install: ## Show Flutter installation instructions
-	./scripts/install-flutter.sh
 
 test-setup: ## Test if development environment is working
 	@echo "🧪 Testing development environment..."
