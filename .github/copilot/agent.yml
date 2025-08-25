@@ -2,17 +2,12 @@ name: Doorlock Development Environment
 description: Environment configuration for Doorlock development with Flutter and PocketBase
 
 setup:
-  # Install Flutter SDK for development
-  - name: Install Flutter SDK
-    run: |
-      # Download and install Flutter SDK
-      cd /tmp
-      wget -q https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.27.1-stable.tar.xz
-      tar xf flutter_linux_3.27.1-stable.tar.xz
-      # Add Flutter to PATH for this session
-      echo "/tmp/flutter/bin" >> $GITHUB_PATH
-      # Verify installation
-      /tmp/flutter/bin/flutter doctor
+  # Install Flutter SDK using official action
+  - name: Set up Flutter
+    uses: subosito/flutter-action@v2
+    with:
+      flutter-version: '3.27.1'
+      channel: 'stable'
 
   # Install project dependencies
   - name: Install Flutter dependencies
@@ -29,8 +24,6 @@ setup:
 
 environment:
   # Environment variables for development
-  FLUTTER_ROOT: /tmp/flutter
-  PATH: "/tmp/flutter/bin:$PATH"
   POCKETBASE_URL: "http://localhost:8080"
 
 # Tools and packages this project uses
