@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Flutter/Dart dependencies in the app directory
+  - package-ecosystem: "pub"
+    directory: "/app"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Docker dependencies in Dockerfile.dev
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Docker dependencies in app/Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/app"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
