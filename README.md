@@ -7,7 +7,25 @@ Built for my personal needs, if you want to deploy this you're on your own.
 
 The entire frontend is vibe coded, sorry...
 
-## Setup
+## Development Setup
+
+For local development with hot reload capabilities:
+
+```bash
+# Quick setup with Make
+make dev-setup      # Start PocketBase backend
+make dev-start      # Start frontend development
+
+# Or use scripts directly
+./scripts/setup-dev.sh
+./scripts/start-frontend.sh
+```
+
+Available commands: `make help`
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development instructions.
+
+## Production Setup
 
 1. Deploy Pocketbase
 2. Load schema and hooks into Pocketbase

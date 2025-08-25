@@ -1,0 +1,40 @@
+services:
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: pocketbase_dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./pb_data:/pb/pb_data
+      - ./pb_hooks:/pb/pb_hooks
+      - ./pb_migrations:/pb/pb_migrations
+    restart: unless-stopped
+    environment:
+      - PB_DEV=true
+    command: ["serve", "--http=0.0.0.0:8080", "--dev", "--origins=*"]
+
+  app_dev:
+    image: ghcr.io/cirruslabs/flutter:stable
+    container_name: doorlock_app_dev
+    working_dir: /app
+    volumes:
+      - ./app:/app
+      - flutter_pub_cache:/root/.pub-cache
+    ports:
+      - "8090:8090"
+    environment:
+      - POCKETBASE_URL=http://localhost:8080
+    depends_on:
+      - pocketbase
+    stdin_open: true
+    tty: true
+    command: |
+      bash -c "
+        echo 'Setting up Flutter development environment...'
+        flutter pub get
+        echo 'Starting Flutter development server...'
+        flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8090
+      "
+
+volumes:
+  flutter_pub_cache:
