@@ -4,12 +4,7 @@ updates:
   - package-ecosystem: "pub"
     directory: "/app"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "jhass"
+      interval: "monthly"
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -18,12 +13,7 @@ updates:
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "jhass"
+      interval: "monthly"
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -32,12 +22,7 @@ updates:
   - package-ecosystem: "docker"
     directory: "/app"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "jhass"
+      interval: "monthly"
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -46,12 +31,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "jhass"
+      interval: "monthly"
     commit-message:
       prefix: "chore"
       include: "scope"
