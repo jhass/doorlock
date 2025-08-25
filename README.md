@@ -21,9 +21,9 @@ The entire frontend is vibe coded, sorry...
 ## Architecture
 
 ```mermaid
-    frontend["Frontend (Flutter Web)"] --> backend
-    backend["Backend (Pocketbase)"] --> hassio
-    hassio[HomeAssistant REST API]
+flowchart TD
+    frontend["Frontend (Flutter Web)"] --> backend["Backend (Pocketbase)"]
+    backend --> hassio["HomeAssistant REST API"]
 ```
 
 `doorlock_users` are admins of the app, they can connect a HomeAssistant instance,
