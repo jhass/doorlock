@@ -1,0 +1,41 @@
+name: Doorlock Development Environment
+description: Environment configuration for Doorlock development with Flutter and PocketBase
+
+setup:
+  # Install Flutter SDK using official action
+  - name: Set up Flutter
+    uses: subosito/flutter-action@v2
+    with:
+      flutter-version: '3.27.1'
+      channel: 'stable'
+
+  # Install project dependencies
+  - name: Install Flutter dependencies
+    run: |
+      cd ${{ github.workspace }}/app
+      flutter pub get
+
+  # Set up Docker for PocketBase development
+  - name: Set up Docker environment
+    run: |
+      # Ensure Docker is available
+      docker --version
+      docker compose version
+
+environment:
+  # Environment variables for development
+  POCKETBASE_URL: "http://localhost:8080"
+
+# Tools and packages this project uses
+tools:
+  - flutter
+  - docker
+  - docker-compose
+  - make
+  - bash
+
+# Project-specific configuration
+project:
+  type: flutter
+  backend: pocketbase
+  development_mode: docker-compose
