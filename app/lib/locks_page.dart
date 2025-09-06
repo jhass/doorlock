@@ -1,9 +1,16 @@
-import 'dart:js_util' as js_util;
+import 'dart:js_interop';
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'pb.dart';
 import 'grants_sheet.dart';
+
+@JS('window')
+external JSObject get window;
+
+extension JSObjectExt on JSObject {
+  external void callMethod(JSString method, JSAny? arg);
+}
 
 class LocksPage extends StatefulWidget {
   final String homeAssistantId;
@@ -249,5 +256,5 @@ void windowOpenHtmlContent(String encodedHtml) {
   // Use JS interop to open a new window and write the HTML content (Flutter web only, no dart:html)
   // Fix: properly escape single quotes in the JS string to avoid syntax errors
   final js = "var w = window.open(); w.document.write(decodeURIComponent('${encodedHtml.replaceAll("'", "\\'")}')); w.document.close();";
-  js_util.callMethod(js_util.globalThis, 'eval', [js]);
+  window.callMethod('eval'.toJS, js.toJS);
 }
