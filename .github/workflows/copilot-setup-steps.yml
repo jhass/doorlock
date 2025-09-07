@@ -24,18 +24,92 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.1'
+          flutter-version: '3.35.3'
           channel: 'stable'
+          cache: true
+          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:'
+          
+      - name: Verify Flutter installation
+        run: |
+          flutter --version
+          dart --version
+          
+          # Check if Dart version meets the minimum requirement (3.8.1)
+          DART_VERSION=$(dart --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          echo "Dart version: $DART_VERSION"
+          
+          # Compare versions (simple check for major.minor >= 3.8)
+          MAJOR=$(echo $DART_VERSION | cut -d. -f1)
+          MINOR=$(echo $DART_VERSION | cut -d. -f2)
+          if [[ $MAJOR -gt 3 ]] || [[ $MAJOR -eq 3 && $MINOR -ge 8 ]]; then
+            echo "✅ Dart version $DART_VERSION meets requirement ^3.8.1"
+          else
+            echo "❌ Dart version $DART_VERSION does not meet requirement ^3.8.1"
+            echo "Please update Flutter to a version that includes Dart 3.8.1+"
+            exit 1
+          fi
+          
+          flutter doctor --android-licenses || true
+          flutter doctor -v
 
-      - name: Install Flutter dependencies
+      - name: Pre-download Flutter dependencies and tools
         run: |
           cd ${{ github.workspace }}/app
-          flutter pub get
+          
+          echo "=== Pre-caching Flutter tools (web only to avoid network issues) ==="
+          flutter precache --web --no-android --no-ios --no-linux --no-windows --no-macos || {
+            echo "⚠️  Flutter precache failed, continuing without precache"
+          }
+          
+          echo "=== Installing app dependencies ==="
+          flutter pub get || {
+            echo "❌ Flutter pub get failed"
+            echo "Pubspec requirements:"
+            grep -A 5 "environment:" pubspec.yaml || true
+            echo "Current Dart SDK: $(dart --version)"
+            exit 1
+          }
+          
+          echo "=== Running basic analysis ==="
+          flutter analyze --no-fatal-infos || {
+            echo "⚠️  Flutter analyze found issues, but continuing"
+          }
+          
+          echo "=== Verifying app can build ==="
+          flutter build web --release --no-web-resources-cdn || {
+            echo "⚠️  Flutter build failed, but environment setup complete"
+          }
 
-      - name: Set up Docker environment
+      - name: Set up Docker environment and PocketBase
         run: |
           docker --version
           docker compose version
+          
+          # Start PocketBase in background for testing
+          cd ${{ github.workspace }}
+          docker compose -f docker-compose.dev.yml up -d
+          
+          # Wait for PocketBase to be ready
+          timeout 30 bash -c 'until curl -f http://localhost:8080/api/health &>/dev/null; do sleep 1; done' || true
+          
+          # Show PocketBase status
+          curl -f http://localhost:8080/api/health || echo "PocketBase not yet ready"
+
+      - name: Verify complete environment setup
+        run: |
+          echo "=== Environment Summary ==="
+          echo "Flutter version: $(flutter --version | head -1)"
+          echo "Docker version: $(docker --version)"
+          echo "Docker Compose version: $(docker compose version --short)"
+          echo "PocketBase status: $(curl -f http://localhost:8080/api/health 2>/dev/null && echo 'Ready' || echo 'Not ready')"
+          echo "Workspace: ${{ github.workspace }}"
+          ls -la ${{ github.workspace }}/app/
+          
+      - name: Run environment validation
+        run: |
+          cd ${{ github.workspace }}
+          chmod +x scripts/validate-setup.sh
+          ./scripts/validate-setup.sh
 
       - name: Customize Copilot Agent Environment
         if: ${{ env.COPILOT_AGENT_ENV != '' }}
