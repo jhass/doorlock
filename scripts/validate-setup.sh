@@ -64,16 +64,20 @@ else
 fi
 
 # Check PocketBase
-echo "Checking PocketBase..."
-if docker compose -f docker-compose.dev.yml ps | grep -q "Up"; then
-    echo "✅ PocketBase is running"
-    if curl -f http://localhost:8080/api/health &> /dev/null; then
-        echo "✅ PocketBase API is accessible"
+if [[ "${SKIP_POCKETBASE:-}" != "1" ]]; then
+    echo "Checking PocketBase..."
+    if docker compose -f docker-compose.dev.yml ps | grep -q "Up"; then
+        echo "✅ PocketBase is running"
+        if curl -f http://localhost:8080/api/health &> /dev/null; then
+            echo "✅ PocketBase API is accessible"
+        else
+            echo "⚠️  PocketBase API not accessible at localhost:8080"
+        fi
     else
-        echo "⚠️  PocketBase API not accessible at localhost:8080"
+        echo "ℹ️  PocketBase not currently running (start with: docker compose -f docker-compose.dev.yml up -d)"
     fi
 else
-    echo "ℹ️  PocketBase not currently running (start with: docker compose -f docker-compose.dev.yml up -d)"
+    echo "ℹ️  Skipping PocketBase checks (test mode)"
 fi
 
 echo ""
