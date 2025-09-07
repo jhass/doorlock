@@ -52,6 +52,103 @@ void main() {
       // Test the QR scanner page UI
       await _testQRScannerPage(tester);
     });
+
+    testWidgets('Widget interaction testing', (WidgetTester tester) async {
+      print('🎯 Testing specific widget interactions...');
+      
+      app.main();
+      await tester.pumpAndSettle();
+      
+      // Test text field interactions
+      final usernameField = find.widgetWithText(TextFormField, 'Username');
+      await tester.tap(usernameField);
+      await tester.pumpAndSettle();
+      
+      // Type and verify text appears
+      await tester.enterText(usernameField, 'test input');
+      await tester.pumpAndSettle();
+      
+      expect(find.text('test input'), findsOneWidget);
+      
+      // Clear the field
+      await tester.enterText(usernameField, '');
+      await tester.pumpAndSettle();
+      
+      // Test button states
+      final signInButton = find.widgetWithText(ElevatedButton, 'Sign In');
+      expect(signInButton, findsOneWidget);
+      
+      // Test multiple taps (should not crash)
+      for (int i = 0; i < 5; i++) {
+        await tester.tap(signInButton);
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pumpAndSettle();
+      
+      print('✅ Widget interaction testing completed');
+    });
+
+    testWidgets('App state management testing', (WidgetTester tester) async {
+      print('🔄 Testing app state management...');
+      
+      app.main();
+      await tester.pumpAndSettle();
+      
+      // Sign in
+      await _signInForTesting(tester);
+      
+      // Navigate to add page
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+      
+      // Add some input
+      await tester.enterText(find.byType(TextFormField), 'test state');
+      await tester.pumpAndSettle();
+      
+      // Navigate back
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      
+      // Verify we're back at home assistants
+      expect(find.text('Home Assistants'), findsOneWidget);
+      
+      // Navigate forward again
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+      
+      // Verify form is reset (good practice)
+      expect(find.text('Add Home Assistant'), findsOneWidget);
+      
+      print('✅ App state management testing completed');
+    });
+
+    testWidgets('Performance and responsiveness testing', (WidgetTester tester) async {
+      print('⚡ Testing performance and responsiveness...');
+      
+      app.main();
+      await tester.pumpAndSettle();
+      
+      // Measure sign in performance
+      final stopwatch = Stopwatch()..start();
+      
+      await _signInForTesting(tester);
+      
+      stopwatch.stop();
+      print('ℹ️ Sign in took ${stopwatch.elapsedMilliseconds}ms');
+      
+      // Test rapid navigation
+      for (int i = 0; i < 3; i++) {
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.arrow_back));
+        await tester.pumpAndSettle();
+      }
+      
+      // App should still be responsive
+      expect(find.text('Home Assistants'), findsOneWidget);
+      
+      print('✅ Performance and responsiveness testing completed');
+    });
   });
 }
 
@@ -208,103 +305,3 @@ Future<void> _testQRScannerPage(WidgetTester tester) async {
   
   print('✅ QR scanner page structure verified');
 }
-
-/// Test specific widget interactions and behaviors
-testWidgets('Widget interaction testing', (WidgetTester tester) async {
-  print('🎯 Testing specific widget interactions...');
-  
-  app.main();
-  await tester.pumpAndSettle();
-  
-  // Test text field interactions
-  final usernameField = find.widgetWithText(TextFormField, 'Username');
-  await tester.tap(usernameField);
-  await tester.pumpAndSettle();
-  
-  // Type and verify text appears
-  await tester.enterText(usernameField, 'test input');
-  await tester.pumpAndSettle();
-  
-  expect(find.text('test input'), findsOneWidget);
-  
-  // Clear the field
-  await tester.enterText(usernameField, '');
-  await tester.pumpAndSettle();
-  
-  // Test button states
-  final signInButton = find.widgetWithText(ElevatedButton, 'Sign In');
-  expect(signInButton, findsOneWidget);
-  
-  // Test multiple taps (should not crash)
-  for (int i = 0; i < 5; i++) {
-    await tester.tap(signInButton);
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-  await tester.pumpAndSettle();
-  
-  print('✅ Widget interaction testing completed');
-}, timeout: const Timeout(Duration(minutes: 2)));
-
-/// Test app state management across navigation
-testWidgets('App state management testing', (WidgetTester tester) async {
-  print('🔄 Testing app state management...');
-  
-  app.main();
-  await tester.pumpAndSettle();
-  
-  // Sign in
-  await _signInForTesting(tester);
-  
-  // Navigate to add page
-  await tester.tap(find.byIcon(Icons.add));
-  await tester.pumpAndSettle();
-  
-  // Add some input
-  await tester.enterText(find.byType(TextFormField), 'test state');
-  await tester.pumpAndSettle();
-  
-  // Navigate back
-  await tester.tap(find.byIcon(Icons.arrow_back));
-  await tester.pumpAndSettle();
-  
-  // Verify we're back at home assistants
-  expect(find.text('Home Assistants'), findsOneWidget);
-  
-  // Navigate forward again
-  await tester.tap(find.byIcon(Icons.add));
-  await tester.pumpAndSettle();
-  
-  // Verify form is reset (good practice)
-  expect(find.text('Add Home Assistant'), findsOneWidget);
-  
-  print('✅ App state management testing completed');
-}, timeout: const Timeout(Duration(minutes: 2)));
-
-/// Test app performance and responsiveness
-testWidgets('Performance and responsiveness testing', (WidgetTester tester) async {
-  print('⚡ Testing performance and responsiveness...');
-  
-  app.main();
-  await tester.pumpAndSettle();
-  
-  // Measure sign in performance
-  final stopwatch = Stopwatch()..start();
-  
-  await _signInForTesting(tester);
-  
-  stopwatch.stop();
-  print('ℹ️ Sign in took ${stopwatch.elapsedMilliseconds}ms');
-  
-  // Test rapid navigation
-  for (int i = 0; i < 3; i++) {
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
-  }
-  
-  // App should still be responsive
-  expect(find.text('Home Assistants'), findsOneWidget);
-  
-  print('✅ Performance and responsiveness testing completed');
-}, timeout: const Timeout(Duration(minutes: 3)));
