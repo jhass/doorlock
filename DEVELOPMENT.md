@@ -121,6 +121,32 @@ For development, this points to the local PocketBase instance.
 - `./scripts/setup-dev.sh` - Start PocketBase backend
 - `./scripts/start-frontend.sh` - Start Flutter frontend (tries local first, then Docker)
 - `./scripts/restart-backend.sh` - Restart backend after changes
+- `./scripts/start-integration-test.sh` - Start test environment for integration tests
+- `./scripts/run-integration-tests.sh` - Run integration tests
+
+## Integration Testing
+
+The project includes a comprehensive integration test suite that boots both the backend and frontend and walks through all application screens and dialogs.
+
+### Quick Start
+```bash
+# Run all integration tests
+make integration-test
+
+# Run specific test categories
+make integration-test-ui      # UI walkthrough tests
+make integration-test-dialogs # Dialogs and modals tests
+```
+
+### Test Coverage
+- **Authentication flow**: Sign in, validation, error handling
+- **All screens**: Home Assistants, Add Assistant, Locks, Grants
+- **All dialogs**: Forms, confirmations, QR codes, error messages
+- **Navigation**: Consistent navigation between screens
+- **Error handling**: Network errors, validation, user feedback
+- **Grant flow**: QR scanner and door opening functionality
+
+See [app/integration_test/README.md](app/integration_test/README.md) for detailed documentation.
 
 ## Debugging
 
