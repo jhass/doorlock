@@ -1,4 +1,4 @@
-.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean test-setup integration-test integration-test-ui integration-test-dialogs
+.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean test-setup integration-test integration-test-ui integration-test-dialogs widget-test
 
 help: ## Show this help message
 	@echo "Doorlock Development Commands:"
@@ -50,12 +50,16 @@ dev: dev-setup ## Quick start: setup and start development environment
 	@echo ""
 	@echo "💡 Next: run 'make dev-start' in a new terminal to start the frontend"
 
-# Integration testing commands
-integration-test: ## Run all integration tests
+# Working integration tests using widget testing
+widget-test: ## Run working widget integration tests (RECOMMENDED)
+	./scripts/run_integration_tests.sh
+
+# Legacy integration testing commands (may not work on all platforms)
+integration-test: ## Run all integration tests (legacy, may not work on web)
 	@cd app && ../scripts/run-integration-tests.sh --all
 
-integration-test-ui: ## Run UI walkthrough integration tests
+integration-test-ui: ## Run UI walkthrough integration tests (legacy)
 	@cd app && ../scripts/run-integration-tests.sh --ui
 
-integration-test-dialogs: ## Run dialogs and grant flow integration tests
+integration-test-dialogs: ## Run dialogs and grant flow integration tests (legacy)
 	@cd app && ../scripts/run-integration-tests.sh --dialogs
