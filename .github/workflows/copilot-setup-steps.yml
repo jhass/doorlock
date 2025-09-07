@@ -1,41 +1,44 @@
 name: Doorlock Development Environment
-description: Environment configuration for Doorlock development with Flutter and PocketBase
 
-setup:
-  # Install Flutter SDK using official action
-  - name: Set up Flutter
-    uses: subosito/flutter-action@v2
-    with:
-      flutter-version: '3.27.1'
-      channel: 'stable'
+on:
+  workflow_call:
+    inputs:
+      copilot_agent_env:
+        required: false
+        type: string
+    secrets:
+      COPILOT_AGENT_API_KEY:
+        required: false
 
-  # Install project dependencies
-  - name: Install Flutter dependencies
-    run: |
-      cd ${{ github.workspace }}/app
-      flutter pub get
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      POCKETBASE_URL: "http://localhost:8080"
+      COPILOT_AGENT_ENV: ${{ inputs.copilot_agent_env }}
+      COPILOT_AGENT_API_KEY: ${{ secrets.COPILOT_AGENT_API_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  # Set up Docker for PocketBase development
-  - name: Set up Docker environment
-    run: |
-      # Ensure Docker is available
-      docker --version
-      docker compose version
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
 
-environment:
-  # Environment variables for development
-  POCKETBASE_URL: "http://localhost:8080"
+      - name: Install Flutter dependencies
+        run: |
+          cd ${{ github.workspace }}/app
+          flutter pub get
 
-# Tools and packages this project uses
-tools:
-  - flutter
-  - docker
-  - docker-compose
-  - make
-  - bash
+      - name: Set up Docker environment
+        run: |
+          docker --version
+          docker compose version
 
-# Project-specific configuration
-project:
-  type: flutter
-  backend: pocketbase
-  development_mode: docker-compose
+      - name: Customize Copilot Agent Environment
+        if: ${{ env.COPILOT_AGENT_ENV != '' }}
+        run: |
+          echo "${COPILOT_AGENT_ENV}" > ${{ github.workspace }}/copilot-agent.env
+          cat ${{ github.workspace }}/copilot-agent.env
