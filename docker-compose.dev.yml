@@ -14,9 +14,7 @@ services:
     command: ["serve", "--http=0.0.0.0:8080", "--dev", "--origins=*"]
 
   app_dev:
-    build:
-      context: ./app
-      dockerfile: Dockerfile.dev
+    image: ghcr.io/cirruslabs/flutter:stable
     container_name: doorlock_app_dev
     working_dir: /app
     volumes:
@@ -26,7 +24,6 @@ services:
       - "8090:8090"
     environment:
       - POCKETBASE_URL=http://localhost:8080
-      - CHROME_EXECUTABLE=/usr/bin/chromium-browser
     depends_on:
       - pocketbase
     stdin_open: true
@@ -34,9 +31,22 @@ services:
     command: |
       bash -c "
         echo 'Setting up Flutter development environment...'
-        flutter pub get
+        
+        # Use offline mode if network issues occur
+        echo 'Installing dependencies...'
+        if ! flutter pub get; then
+          echo 'Network issues detected, trying offline mode...'
+          flutter pub get --offline || flutter pub get --no-precompile
+        fi
+        
         echo 'Starting Flutter development server...'
-        flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8090 --web-browser-flag '--no-sandbox --disable-gpu'
+        # Try to start the server, handling potential network issues gracefully
+        if ! flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8090; then
+          echo 'Web development server failed to start due to network issues.'
+          echo 'This is likely due to temporary network connectivity problems.'
+          echo 'Try running the container again later or use local Flutter installation.'
+          exit 1
+        fi
       "
 
 volumes:

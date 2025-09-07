@@ -28,6 +28,14 @@ if ! command -v flutter &> /dev/null; then
         # Add Flutter to PATH for this session
         export PATH="/opt/flutter/bin:$PATH"
         cd app
+        
+        # Verify Flutter is working
+        if ! flutter --version >/dev/null 2>&1; then
+            echo "❌ Flutter installation incomplete due to network issues"
+            echo "🐳 Falling back to Docker..."
+            docker compose -f docker-compose.dev.yml up app_dev
+            exit 0
+        fi
     else
         echo "❌ Failed to install Flutter locally. Falling back to Docker..."
         echo "🐳 Starting Flutter development container..."

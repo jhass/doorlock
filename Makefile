@@ -12,6 +12,12 @@ dev-setup: ## Set up development environment (start PocketBase)
 dev-start: ## Start frontend development server
 	./scripts/start-frontend.sh
 
+dev-start-docker: ## Start frontend development server using Docker
+	./scripts/start-frontend-docker.sh
+
+install-flutter: ## Install Flutter SDK locally
+	./scripts/install-flutter.sh
+
 dev-stop: ## Stop all development services
 	docker compose -f docker-compose.dev.yml down
 
@@ -35,12 +41,15 @@ test-setup: ## Test if development environment is working
 	@echo "3. Checking ports..."
 	@curl -s http://localhost:8080 > /dev/null && echo "  ✅ Port 8080 is accessible" || echo "  ❌ Port 8080 is not accessible"
 	@echo "4. Checking Flutter..."
-	@command -v flutter > /dev/null && echo "  ✅ Flutter is available" || echo "  ⚠️  Flutter not found (will use Docker)"
+	@echo "4. Checking Flutter..."
+	@command -v flutter > /dev/null && echo "  ✅ Flutter is available" || echo "  ⚠️  Flutter not found (will be installed automatically or use Docker)"
 	@echo ""
 	@echo "🎯 Setup complete! Next steps:"
 	@echo "   1. Access PocketBase admin: http://localhost:8080/_/"
 	@echo "   2. Create a doorlock_users record"
 	@echo "   3. Start frontend: make dev-start"
+	@echo ""
+	@echo "💡 If Flutter is not installed, it will be installed automatically when you start the frontend"
 
 # Quick development workflow
 dev: dev-setup ## Quick start: setup and start development environment

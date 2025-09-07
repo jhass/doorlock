@@ -11,33 +11,36 @@ This directory contains scripts and configurations for setting up a development 
 make help
 
 # Setup and start development environment
-make dev-setup      # Start PocketBase backend
-make test-setup     # Verify everything is working
-make dev-start      # Start frontend development
+make dev-setup        # Start PocketBase backend
+make dev-start        # Start frontend (auto-install Flutter if needed, fallback to Docker)
+make dev-start-docker  # Start frontend using Docker only (for network issues)
+make install-flutter  # Install Flutter SDK manually
+make test-setup       # Verify everything is working
 ```
 
 ### Option 2: Using Scripts Directly
 
-1. **Install Flutter SDK**
+1. **Install Flutter SDK (Automatic or Manual)**
    
-   The development environment supports automatic Flutter installation when using GitHub Copilot agents (configured in `.github/copilot/agent.yml`). For manual setup, follow these steps:
+   The development scripts will automatically install Flutter if it's not available. To install manually:
    
+   ```bash
+   # Use the provided installation script (recommended)
+   ./scripts/install-flutter.sh
+   ```
+   
+   Or install manually:
    a. Download Flutter SDK:
    - Visit: https://docs.flutter.dev/get-started/install/linux
-   - Or use this direct link: https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.27.1-stable.tar.xz
    
    b. Extract and install:
    ```bash
    tar xf flutter_linux_*-stable.tar.xz
    sudo mv flutter /opt/flutter
-   ```
-   
-   c. Add to your PATH:
-   ```bash
    export PATH="/opt/flutter/bin:$PATH"
    ```
    
-   d. Verify installation:
+   c. Verify installation:
    ```bash
    flutter doctor
    ```
@@ -120,6 +123,8 @@ For development, this points to the local PocketBase instance.
 
 - `./scripts/setup-dev.sh` - Start PocketBase backend
 - `./scripts/start-frontend.sh` - Start Flutter frontend (tries local first, then Docker)
+- `./scripts/start-frontend-docker.sh` - Start Flutter frontend using Docker only
+- `./scripts/install-flutter.sh` - Install Flutter SDK locally
 - `./scripts/restart-backend.sh` - Restart backend after changes
 
 ## Debugging
@@ -134,6 +139,13 @@ For development, this points to the local PocketBase instance.
 - Check if port 8090 is already in use
 - Run Flutter doctor: `flutter doctor`
 - For web development issues: `flutter clean && flutter pub get`
+
+**Network/Download Issues:**
+If you encounter 403 errors or download failures when installing Flutter:
+- This is usually a temporary issue with Flutter's servers
+- Try again in a few minutes
+- Use the Docker fallback: `make dev-start-docker` or `./scripts/start-frontend-docker.sh`
+- Or manually install Flutter using snap: `sudo snap install flutter --classic`
 
 ### Network Issues
 - The containers communicate via Docker's internal network
