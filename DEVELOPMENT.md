@@ -20,7 +20,7 @@ make dev-start      # Start frontend development
 
 1. **Install Flutter SDK**
    
-   The development environment supports automatic Flutter installation when using GitHub Copilot agents (configured in `.github/copilot/agent.yml`). For manual setup, follow these steps:
+   The development environment supports automatic Flutter installation when using GitHub Copilot agents (configured in `.github/workflows/copilot-setup-steps.yml`). For manual setup, follow these steps:
    
    a. Download Flutter SDK:
    - Visit: https://docs.flutter.dev/get-started/install/linux
