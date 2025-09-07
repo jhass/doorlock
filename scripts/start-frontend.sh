@@ -18,13 +18,22 @@ cd app
 
 # Check if Flutter is installed
 if ! command -v flutter &> /dev/null; then
-    echo "⚠️  Flutter is not installed locally. Attempting to use Docker..."
+    echo "⚠️  Flutter is not installed locally. Attempting to install..."
     
-    # Use Flutter container for development
-    echo "🐳 Starting Flutter development container..."
+    # Try to install Flutter locally first
+    echo "📦 Installing Flutter SDK..."
     cd ..
-    docker compose -f docker-compose.dev.yml up app_dev
-    exit 0
+    if ./scripts/install-flutter.sh; then
+        echo "✅ Flutter installed successfully"
+        # Add Flutter to PATH for this session
+        export PATH="/opt/flutter/bin:$PATH"
+        cd app
+    else
+        echo "❌ Failed to install Flutter locally. Falling back to Docker..."
+        echo "🐳 Starting Flutter development container..."
+        docker compose -f docker-compose.dev.yml up app_dev
+        exit 0
+    fi
 fi
 
 echo "🚀 Using local Flutter installation"

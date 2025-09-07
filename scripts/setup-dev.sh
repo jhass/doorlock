@@ -19,6 +19,15 @@ fi
 
 echo "✅ Docker and Docker Compose are available"
 
+# Check if Flutter is installed and offer to install it
+if ! command -v flutter &> /dev/null; then
+    echo ""
+    echo "📱 Flutter is not installed locally."
+    echo "   Flutter will be installed automatically when you run ./scripts/start-frontend.sh"
+    echo "   Or you can install it now with: ./scripts/install-flutter.sh"
+    echo ""
+fi
+
 # Create pb_data directory if it doesn't exist
 if [ ! -d "pb_data" ]; then
     echo "📁 Creating pb_data directory..."

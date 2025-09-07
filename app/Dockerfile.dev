@@ -1,0 +1,39 @@
+# Dockerfile for Flutter development with web support
+FROM ubuntu:22.04
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    unzip \
+    xz-utils \
+    zip \
+    libglu1-mesa \
+    wget \
+    chromium-browser \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Chrome executable for Flutter web
+ENV CHROME_EXECUTABLE="/usr/bin/chromium-browser"
+
+# Install Flutter SDK
+ENV FLUTTER_ROOT="/opt/flutter"
+ENV PATH="$FLUTTER_ROOT/bin:$PATH"
+
+RUN git clone --depth 1 -b stable https://github.com/flutter/flutter.git $FLUTTER_ROOT
+
+# Pre-download Flutter dependencies
+RUN flutter doctor --android-licenses || true
+RUN flutter precache --web --no-android --no-ios --no-linux --no-macos --no-windows
+
+# Create app directory
+WORKDIR /app
+
+# Set up Flutter web server
+EXPOSE 8090
+
+# Default command
+CMD ["bash"]
