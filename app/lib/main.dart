@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),
-        home: _GrantFlow(grantToken: grantToken),
+        home: GrantFlow(grantToken: grantToken),
       );
     }
 
@@ -43,14 +43,14 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class _GrantFlow extends StatefulWidget {
+class GrantFlow extends StatefulWidget {
   final String grantToken;
-  const _GrantFlow({required this.grantToken});
+  const GrantFlow({super.key, required this.grantToken});
   @override
-  State<_GrantFlow> createState() => _GrantFlowState();
+  State<GrantFlow> createState() => _GrantFlowState();
 }
 
-class _GrantFlowState extends State<_GrantFlow> {
+class _GrantFlowState extends State<GrantFlow> {
   String? _lockToken;
 
   @override
