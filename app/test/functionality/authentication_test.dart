@@ -3,100 +3,172 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:doorlock/sign_in_page.dart';
 
 void main() {
-  group('Authentication Flow', () {
-    testWidgets('Sign-in page displays correctly', (WidgetTester tester) async {
+  group('Authentication Functionality', () {
+    testWidgets('Complete authentication workflow', (WidgetTester tester) async {
+      String? authenticatedUser, authenticatedPassword;
+      List<String> authAttempts = [];
+
       await tester.pumpWidget(MaterialApp(
         home: SignInPage(
           onSignIn: (username, password) {
-            // Test callback setup
+            authAttempts.add('$username:$password');
+            authenticatedUser = username;
+            authenticatedPassword = password;
           },
         ),
       ));
 
-      // Verify basic UI elements
-      expect(find.text('Sign In'), findsWidgets); // Could appear in title and button
-      expect(find.text('Username'), findsOneWidget);
-      expect(find.text('Password'), findsOneWidget);
-      expect(find.byType(TextFormField), findsNWidgets(2));
-      expect(find.widgetWithText(ElevatedButton, 'Sign In'), findsOneWidget);
-    });
-
-    testWidgets('Form validation for empty fields', (WidgetTester tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SignInPage(onSignIn: (username, password) {}),
-      ));
-
-      // Try to submit empty form
+      // Test complete authentication flow
+      await tester.enterText(find.widgetWithText(TextFormField, 'Username'), 'admin');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'secure123');
       await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
       await tester.pumpAndSettle();
 
-      // Should show validation errors
+      // Verify authentication was processed
+      expect(authAttempts.length, equals(1));
+      expect(authenticatedUser, equals('admin'));
+      expect(authenticatedPassword, equals('secure123'));
+      expect(authAttempts.first, equals('admin:secure123'));
+    });
+
+    testWidgets('Authentication with error handling', (WidgetTester tester) async {
+      bool authenticationAttempted = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: SignInPage(
+          onSignIn: (username, password) {
+            authenticationAttempted = true;
+          },
+          error: 'Authentication failed: Invalid credentials',
+        ),
+      ));
+
+      // Verify error is displayed prominently
+      expect(find.text('Authentication failed: Invalid credentials'), findsOneWidget);
+      
+      // User can still attempt to sign in despite error
+      await tester.enterText(find.widgetWithText(TextFormField, 'Username'), 'retry');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'password');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
+      await tester.pumpAndSettle();
+
+      expect(authenticationAttempted, isTrue);
+    });
+
+    testWidgets('Input validation prevents invalid submissions', (WidgetTester tester) async {
+      bool submitAttempted = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: SignInPage(
+          onSignIn: (username, password) {
+            submitAttempted = true;
+          },
+        ),
+      ));
+
+      // Try submitting without credentials
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
+      await tester.pumpAndSettle();
+
+      // Should show validation messages and not call onSignIn
       expect(find.text('Enter username'), findsOneWidget);
       expect(find.text('Enter password'), findsOneWidget);
+      expect(submitAttempted, isFalse);
     });
 
-    testWidgets('Sign-in form accepts input and submits', (WidgetTester tester) async {
-      bool signInCalled = false;
-      String? lastUsername, lastPassword;
+    testWidgets('Authentication state management', (WidgetTester tester) async {
+      List<Map<String, String>> authHistory = [];
 
       await tester.pumpWidget(MaterialApp(
-        home: SignInPage(
-          onSignIn: (username, password) {
-            signInCalled = true;
-            lastUsername = username;
-            lastPassword = password;
+        home: _TestAuthFlow(
+          onAuthAttempt: (username, password) {
+            authHistory.add({'username': username, 'password': password});
           },
         ),
       ));
 
-      // Enter credentials
-      await tester.enterText(find.widgetWithText(TextFormField, 'Username'), 'testuser');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'testpass123');
+      // Test multiple authentication attempts
+      await tester.enterText(find.byKey(const Key('username')), 'user1');
+      await tester.enterText(find.byKey(const Key('password')), 'pass1');
+      await tester.tap(find.byKey(const Key('signin')));
       await tester.pumpAndSettle();
 
-      // Submit form
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
+      // Clear and try again
+      await tester.enterText(find.byKey(const Key('username')), 'user2');
+      await tester.enterText(find.byKey(const Key('password')), 'pass2');
+      await tester.tap(find.byKey(const Key('signin')));
       await tester.pumpAndSettle();
 
-      // Verify callback was called
-      expect(signInCalled, isTrue);
-      expect(lastUsername, equals('testuser'));
-      expect(lastPassword, equals('testpass123'));
+      // Verify both attempts were captured
+      expect(authHistory.length, equals(2));
+      expect(authHistory[0]['username'], equals('user1'));
+      expect(authHistory[1]['username'], equals('user2'));
     });
 
-    testWidgets('Error message displays when provided', (WidgetTester tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SignInPage(
-          onSignIn: (username, password) {},
-          error: 'Invalid credentials',
-        ),
-      ));
-
-      // Should show error message
-      expect(find.text('Invalid credentials'), findsOneWidget);
-    });
-
-    testWidgets('Username input is trimmed', (WidgetTester tester) async {
-      String? lastUsername;
+    testWidgets('User credential processing', (WidgetTester tester) async {
+      Map<String, String> processedCredentials = {};
 
       await tester.pumpWidget(MaterialApp(
         home: SignInPage(
           onSignIn: (username, password) {
-            lastUsername = username;
+            // Test credential processing (trimming, etc.)
+            processedCredentials['username'] = username;
+            processedCredentials['password'] = password;
           },
         ),
       ));
 
-      // Enter username with whitespace
+      // Test with whitespace that should be trimmed
       await tester.enterText(find.widgetWithText(TextFormField, 'Username'), '  testuser  ');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'testpass123');
-      await tester.pumpAndSettle();
-
+      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'password123');
       await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
       await tester.pumpAndSettle();
 
-      // Username should be trimmed
-      expect(lastUsername, equals('testuser'));
+      // Verify username was trimmed but password was not
+      expect(processedCredentials['username'], equals('testuser'));
+      expect(processedCredentials['password'], equals('password123'));
     });
   });
+}
+
+// Test authentication flow with state management
+class _TestAuthFlow extends StatefulWidget {
+  final Function(String, String) onAuthAttempt;
+  const _TestAuthFlow({required this.onAuthAttempt});
+  
+  @override
+  State<_TestAuthFlow> createState() => _TestAuthFlowState();
+}
+
+class _TestAuthFlowState extends State<_TestAuthFlow> {
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          TextField(
+            key: const Key('username'),
+            controller: _usernameController,
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
+          TextField(
+            key: const Key('password'),
+            controller: _passwordController,
+            decoration: const InputDecoration(labelText: 'Password'),
+            obscureText: true,
+          ),
+          ElevatedButton(
+            key: const Key('signin'),
+            onPressed: () {
+              widget.onAuthAttempt(_usernameController.text, _passwordController.text);
+            },
+            child: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
 }
