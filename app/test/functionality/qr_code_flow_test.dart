@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:http/http.dart' as http;
 import 'package:doorlock/grant_qr_scanner_page.dart';
+import 'package:doorlock/open_door_page.dart';
+import 'package:doorlock/pb.dart';
 
 // Mock PocketBase that matches the real interface
 class MockPocketBase extends PocketBase {
@@ -46,100 +48,20 @@ class MockPocketBase extends PocketBase {
   }
 }
 
-// Simplified door opening page that doesn't depend on pb.dart or env_config.dart
-class TestableOpenDoorPage extends StatefulWidget {
+// Simple workflow widget for testing navigation between real components
+class GrantFlowTestWidget extends StatefulWidget {
   final String grantToken;
-  final String lockToken;
-  final PocketBase pb;
   
-  const TestableOpenDoorPage({
+  const GrantFlowTestWidget({
     super.key,
     required this.grantToken,
-    required this.lockToken,
-    required this.pb,
-  });
-
-  @override
-  State<TestableOpenDoorPage> createState() => _TestableOpenDoorPageState();
-}
-
-class _TestableOpenDoorPageState extends State<TestableOpenDoorPage> {
-  bool _loading = false;
-  String? _result;
-  String? _error;
-
-  Future<void> _openDoor() async {
-    setState(() {
-      _loading = true;
-      _result = null;
-      _error = null;
-    });
-    
-    try {
-      await widget.pb.send(
-        '/doorlock/locks/${widget.lockToken}/open',
-        method: 'POST',
-        body: {'token': widget.grantToken},
-      );
-      setState(() {
-        _result = 'Door opened!';
-      });
-    } on ClientException catch (e) {
-      setState(() {
-        _error = 'Failed: ${e.response['message'] ?? e.toString()}';
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Error: $e';
-      });
-    } finally {
-      setState(() {
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Open Door')),
-      body: Center(
-        child: _loading
-            ? const CircularProgressIndicator()
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_result != null)
-                    Text(_result!, style: const TextStyle(color: Colors.green, fontSize: 20)),
-                  if (_error != null)
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ElevatedButton(
-                    onPressed: _openDoor,
-                    child: const Text('Open Door'),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
-// Testable GrantFlow that doesn't depend on web-specific components
-class TestableGrantFlow extends StatefulWidget {
-  final String grantToken;
-  final PocketBase pb;
-  
-  const TestableGrantFlow({
-    super.key,
-    required this.grantToken,
-    required this.pb,
   });
   
   @override
-  State<TestableGrantFlow> createState() => _TestableGrantFlowState();
+  State<GrantFlowTestWidget> createState() => _GrantFlowTestWidgetState();
 }
 
-class _TestableGrantFlowState extends State<TestableGrantFlow> {
+class _GrantFlowTestWidgetState extends State<GrantFlowTestWidget> {
   String? _lockToken;
 
   @override
@@ -151,10 +73,9 @@ class _TestableGrantFlowState extends State<TestableGrantFlow> {
         },
       );
     }
-    return TestableOpenDoorPage(
+    return OpenDoorPage(
       grantToken: widget.grantToken,
       lockToken: _lockToken!,
-      pb: widget.pb,
     );
   }
 }
@@ -165,6 +86,13 @@ void main() {
     
     setUp(() {
       mockPB = MockPocketBase();
+      // Inject mock PocketBase into the real PB class
+      PB.setTestInstance(mockPB);
+    });
+    
+    tearDown(() {
+      // Clear the test instance to restore normal operation
+      PB.clearTestInstance();
     });
 
     testWidgets('GrantQrScannerPage UI structure and callback functionality', (WidgetTester tester) async {
@@ -195,17 +123,16 @@ void main() {
       mockPB.setResponse('POST:/doorlock/locks/test-lock-123/open', {'success': true});
       
       await tester.pumpWidget(MaterialApp(
-        home: TestableOpenDoorPage(
+        home: OpenDoorPage(
           grantToken: 'test-grant-456',
           lockToken: 'test-lock-123',
-          pb: mockPB,
         ),
       ));
 
       // Verify OpenDoorPage UI structure
       expect(find.widgetWithText(AppBar, 'Open Door'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
-      expect(find.byType(TestableOpenDoorPage), findsOneWidget);
+      expect(find.byType(OpenDoorPage), findsOneWidget);
 
       // Test door opening operation
       await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
@@ -229,10 +156,9 @@ void main() {
       ));
       
       await tester.pumpWidget(MaterialApp(
-        home: TestableOpenDoorPage(
+        home: OpenDoorPage(
           grantToken: 'invalid-grant',
           lockToken: 'test-lock-123',
-          pb: mockPB,
         ),
       ));
 
@@ -254,25 +180,24 @@ void main() {
       mockPB.setResponse('POST:/doorlock/locks/scanned-lock-456/open', {'success': true});
       
       await tester.pumpWidget(MaterialApp(
-        home: TestableGrantFlow(
+        home: GrantFlowTestWidget(
           grantToken: 'test-grant-123',
-          pb: mockPB,
         ),
       ));
 
       // Should start with QR scanner
       expect(find.byType(GrantQrScannerPage), findsOneWidget);
       expect(find.text('Scan Lock QR Code'), findsOneWidget);
-      expect(find.byType(TestableOpenDoorPage), findsNothing);
+      expect(find.byType(OpenDoorPage), findsNothing);
       
       // Simulate QR scan by triggering the callback
       final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
       scannerWidget.onScanned('scanned-lock-456');
       await tester.pumpAndSettle();
       
-      // Should now show TestableOpenDoorPage
+      // Should now show OpenDoorPage
       expect(find.byType(GrantQrScannerPage), findsNothing);
-      expect(find.byType(TestableOpenDoorPage), findsOneWidget);
+      expect(find.byType(OpenDoorPage), findsOneWidget);
       expect(find.widgetWithText(AppBar, 'Open Door'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
 
@@ -327,10 +252,9 @@ void main() {
       mockPB.setResponse('POST:/doorlock/locks/multi-test/open', {'success': true});
       
       await tester.pumpWidget(MaterialApp(
-        home: TestableOpenDoorPage(
+        home: OpenDoorPage(
           grantToken: 'multi-grant',
           lockToken: 'multi-test',
-          pb: mockPB,
         ),
       ));
 
@@ -364,9 +288,8 @@ void main() {
       ));
       
       await tester.pumpWidget(MaterialApp(
-        home: TestableGrantFlow(
+        home: GrantFlowTestWidget(
           grantToken: 'error-test-grant',
-          pb: mockPB,
         ),
       ));
 
@@ -378,8 +301,8 @@ void main() {
       scannerWidget.onScanned('error-lock-token');
       await tester.pumpAndSettle();
       
-      // Should show TestableOpenDoorPage
-      expect(find.byType(TestableOpenDoorPage), findsOneWidget);
+      // Should show OpenDoorPage
+      expect(find.byType(OpenDoorPage), findsOneWidget);
       
       // Try to open door - should fail
       await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
@@ -399,16 +322,15 @@ void main() {
       mockPB.setResponse('POST:/doorlock/locks/end-to-end-lock/open', {'success': true});
       
       await tester.pumpWidget(MaterialApp(
-        home: TestableGrantFlow(
+        home: GrantFlowTestWidget(
           grantToken: 'end-to-end-grant',
-          pb: mockPB,
         ),
       ));
 
       // Phase 1: QR Scanning
       expect(find.byType(GrantQrScannerPage), findsOneWidget);
       expect(find.text('Scan Lock QR Code'), findsOneWidget);
-      expect(find.byType(TestableOpenDoorPage), findsNothing);
+      expect(find.byType(OpenDoorPage), findsNothing);
 
       // Simulate QR scan
       final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
@@ -417,7 +339,7 @@ void main() {
       
       // Phase 2: Door Opening Interface
       expect(find.byType(GrantQrScannerPage), findsNothing);
-      expect(find.byType(TestableOpenDoorPage), findsOneWidget);
+      expect(find.byType(OpenDoorPage), findsOneWidget);
       expect(find.widgetWithText(AppBar, 'Open Door'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
 
