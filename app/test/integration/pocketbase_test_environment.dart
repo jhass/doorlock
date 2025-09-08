@@ -213,15 +213,21 @@ class PocketBaseTestEnvironment {
     final testHomeAssistants = [
       {
         'user': testUserId,
-        'name': 'Test Home',
+        'name': 'Test Home (Valid Token)',
         'url': 'http://localhost:8123',
-        'access_token': 'mock_token_1',
+        'access_token': 'valid_token',
       },
       {
         'user': testUserId,
-        'name': 'Office HA',
-        'url': 'http://office.local:8123',
-        'access_token': 'mock_token_2',
+        'name': 'Test Home (Expired Token)',
+        'url': 'http://localhost:8123',
+        'access_token': 'expired_token',
+      },
+      {
+        'user': testUserId,
+        'name': 'Test Home (Invalid Token)',
+        'url': 'http://localhost:8123',
+        'access_token': 'invalid_token',
       },
     ];
     
