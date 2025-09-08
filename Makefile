@@ -54,12 +54,3 @@ dev: dev-setup ## Quick start: setup and start development environment
 widget-test: ## Run working widget integration tests (RECOMMENDED)
 	./scripts/run_integration_tests.sh
 
-# Legacy integration testing commands (may not work on all platforms)
-integration-test: ## Run all integration tests (legacy, may not work on web)
-	@cd app && ../scripts/run-integration-tests.sh --all
-
-integration-test-ui: ## Run UI walkthrough integration tests (legacy)
-	@cd app && ../scripts/run-integration-tests.sh --ui
-
-integration-test-dialogs: ## Run dialogs and grant flow integration tests (legacy)
-	@cd app && ../scripts/run-integration-tests.sh --dialogs
