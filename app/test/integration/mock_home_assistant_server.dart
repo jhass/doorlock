@@ -99,6 +99,9 @@ class MockHomeAssistantServer {
         case '/api/services/lock/unlock':
           await _handleUnlock(request);
           break;
+        case '/api/services/lock/open':
+          await _handleUnlock(request); // Same handling as unlock
+          break;
         case '/auth/authorize':
           await _handleAuthorize(request);
           break;
@@ -240,13 +243,21 @@ class MockHomeAssistantServer {
   
   static Future<void> _handleToken(HttpRequest request) async {
     final body = await utf8.decoder.bind(request).join();
-    final data = jsonDecode(body) as Map<String, dynamic>;
+    
+    // Parse form-encoded data (grant_type=refresh_token&refresh_token=...)
+    final params = <String, String>{};
+    for (final pair in body.split('&')) {
+      final keyValue = pair.split('=');
+      if (keyValue.length == 2) {
+        params[Uri.decodeComponent(keyValue[0])] = Uri.decodeComponent(keyValue[1]);
+      }
+    }
     
     // Check grant type and code to determine token validity
     String tokenType = 'valid_token';
-    if (data['code'] == 'expired_code') {
+    if (params['code'] == 'expired_code' || params['refresh_token']?.contains('expired') == true) {
       tokenType = 'expired_token';
-    } else if (data['code'] == 'invalid_code') {
+    } else if (params['code'] == 'invalid_code' || params['refresh_token']?.contains('invalid') == true) {
       tokenType = 'invalid_token';
     }
     
