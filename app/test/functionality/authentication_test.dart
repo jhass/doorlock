@@ -76,27 +76,27 @@ void main() {
       expect(submitAttempted, isFalse);
     });
 
-    testWidgets('Authentication state management', (WidgetTester tester) async {
+    testWidgets('Authentication state management with multiple attempts', (WidgetTester tester) async {
       List<Map<String, String>> authHistory = [];
 
       await tester.pumpWidget(MaterialApp(
-        home: _TestAuthFlow(
-          onAuthAttempt: (username, password) {
+        home: SignInPage(
+          onSignIn: (username, password) {
             authHistory.add({'username': username, 'password': password});
           },
         ),
       ));
 
-      // Test multiple authentication attempts
-      await tester.enterText(find.byKey(const Key('username')), 'user1');
-      await tester.enterText(find.byKey(const Key('password')), 'pass1');
-      await tester.tap(find.byKey(const Key('signin')));
+      // Test first authentication attempt
+      await tester.enterText(find.widgetWithText(TextFormField, 'Username'), 'user1');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'pass1');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
       await tester.pumpAndSettle();
 
-      // Clear and try again
-      await tester.enterText(find.byKey(const Key('username')), 'user2');
-      await tester.enterText(find.byKey(const Key('password')), 'pass2');
-      await tester.tap(find.byKey(const Key('signin')));
+      // Clear fields and try again
+      await tester.enterText(find.widgetWithText(TextFormField, 'Username'), 'user2');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'pass2');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
       await tester.pumpAndSettle();
 
       // Verify both attempts were captured
@@ -131,44 +131,3 @@ void main() {
   });
 }
 
-// Test authentication flow with state management
-class _TestAuthFlow extends StatefulWidget {
-  final Function(String, String) onAuthAttempt;
-  const _TestAuthFlow({required this.onAuthAttempt});
-  
-  @override
-  State<_TestAuthFlow> createState() => _TestAuthFlowState();
-}
-
-class _TestAuthFlowState extends State<_TestAuthFlow> {
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          TextField(
-            key: const Key('username'),
-            controller: _usernameController,
-            decoration: const InputDecoration(labelText: 'Username'),
-          ),
-          TextField(
-            key: const Key('password'),
-            controller: _passwordController,
-            decoration: const InputDecoration(labelText: 'Password'),
-            obscureText: true,
-          ),
-          ElevatedButton(
-            key: const Key('signin'),
-            onPressed: () {
-              widget.onAuthAttempt(_usernameController.text, _passwordController.text);
-            },
-            child: const Text('Sign In'),
-          ),
-        ],
-      ),
-    );
-  }
-}

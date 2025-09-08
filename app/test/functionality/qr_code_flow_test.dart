@@ -48,37 +48,7 @@ class MockPocketBase extends PocketBase {
   }
 }
 
-// Simple workflow widget for testing navigation between real components
-class GrantFlowTestWidget extends StatefulWidget {
-  final String grantToken;
-  
-  const GrantFlowTestWidget({
-    super.key,
-    required this.grantToken,
-  });
-  
-  @override
-  State<GrantFlowTestWidget> createState() => _GrantFlowTestWidgetState();
-}
 
-class _GrantFlowTestWidgetState extends State<GrantFlowTestWidget> {
-  String? _lockToken;
-
-  @override
-  Widget build(BuildContext context) {
-    if (_lockToken == null) {
-      return GrantQrScannerPage(
-        onScanned: (lockToken) {
-          setState(() => _lockToken = lockToken);
-        },
-      );
-    }
-    return OpenDoorPage(
-      grantToken: widget.grantToken,
-      lockToken: _lockToken!,
-    );
-  }
-}
 
 void main() {
   group('QR Code Flow Functionality', () {
@@ -175,28 +145,42 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
-    testWidgets('Real GrantFlow workflow integration from QR scan to door opening', (WidgetTester tester) async {
+    testWidgets('QR scanner to door opening navigation workflow', (WidgetTester tester) async {
       // Setup successful door opening response
       mockPB.setResponse('POST:/doorlock/locks/scanned-lock-456/open', {'success': true});
       
+      String? scannedLockToken;
+      
+      // Test QR scanner first
       await tester.pumpWidget(MaterialApp(
-        home: GrantFlowTestWidget(
-          grantToken: 'test-grant-123',
+        home: GrantQrScannerPage(
+          onScanned: (lockToken) {
+            scannedLockToken = lockToken;
+          },
         ),
       ));
 
-      // Should start with QR scanner
+      // Verify QR scanner UI
       expect(find.byType(GrantQrScannerPage), findsOneWidget);
       expect(find.text('Scan Lock QR Code'), findsOneWidget);
-      expect(find.byType(OpenDoorPage), findsNothing);
       
       // Simulate QR scan by triggering the callback
       final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
       scannerWidget.onScanned('scanned-lock-456');
       await tester.pumpAndSettle();
       
-      // Should now show OpenDoorPage
-      expect(find.byType(GrantQrScannerPage), findsNothing);
+      // Verify callback was triggered
+      expect(scannedLockToken, equals('scanned-lock-456'));
+      
+      // Now test the door opening page with the scanned token
+      await tester.pumpWidget(MaterialApp(
+        home: OpenDoorPage(
+          grantToken: 'test-grant-123',
+          lockToken: scannedLockToken!,
+        ),
+      ));
+
+      // Verify door opening UI
       expect(find.byType(OpenDoorPage), findsOneWidget);
       expect(find.widgetWithText(AppBar, 'Open Door'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
@@ -280,28 +264,43 @@ void main() {
       expect(find.text('Door opened!'), findsOneWidget);
     });
 
-    testWidgets('GrantFlow with network error handling', (WidgetTester tester) async {
+    testWidgets('QR scanner error handling workflow', (WidgetTester tester) async {
       // Setup network error
       mockPB.setNextError(ClientException(
         statusCode: 500,
         response: {'message': 'Server error'},
       ));
       
+      String? scannedLockToken;
+      
+      // Test QR scanner
       await tester.pumpWidget(MaterialApp(
-        home: GrantFlowTestWidget(
-          grantToken: 'error-test-grant',
+        home: GrantQrScannerPage(
+          onScanned: (lockToken) {
+            scannedLockToken = lockToken;
+          },
         ),
       ));
 
       // Start with QR scanner
       expect(find.byType(GrantQrScannerPage), findsOneWidget);
       
-      // Scan QR code to navigate to door page
+      // Scan QR code
       final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
       scannerWidget.onScanned('error-lock-token');
       await tester.pumpAndSettle();
       
-      // Should show OpenDoorPage
+      expect(scannedLockToken, equals('error-lock-token'));
+      
+      // Now test door opening with error
+      await tester.pumpWidget(MaterialApp(
+        home: OpenDoorPage(
+          grantToken: 'error-test-grant',
+          lockToken: scannedLockToken!,
+        ),
+      ));
+      
+      // Verify OpenDoorPage
       expect(find.byType(OpenDoorPage), findsOneWidget);
       
       // Try to open door - should fail
@@ -317,42 +316,56 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
-    testWidgets('Complete real GrantFlow end-to-end workflow', (WidgetTester tester) async {
+    testWidgets('Complete QR to door opening workflow validation', (WidgetTester tester) async {
       // Setup successful responses for the complete workflow
       mockPB.setResponse('POST:/doorlock/locks/end-to-end-lock/open', {'success': true});
       
+      String? capturedLockToken;
+      
+      // Phase 1: Test QR Scanner Component
       await tester.pumpWidget(MaterialApp(
-        home: GrantFlowTestWidget(
-          grantToken: 'end-to-end-grant',
+        home: GrantQrScannerPage(
+          onScanned: (lockToken) {
+            capturedLockToken = lockToken;
+          },
         ),
       ));
 
-      // Phase 1: QR Scanning
+      // Verify QR Scanning interface
       expect(find.byType(GrantQrScannerPage), findsOneWidget);
       expect(find.text('Scan Lock QR Code'), findsOneWidget);
-      expect(find.byType(OpenDoorPage), findsNothing);
 
       // Simulate QR scan
       final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
       scannerWidget.onScanned('end-to-end-lock');
       await tester.pumpAndSettle();
       
-      // Phase 2: Door Opening Interface
-      expect(find.byType(GrantQrScannerPage), findsNothing);
+      // Verify scan result captured
+      expect(capturedLockToken, equals('end-to-end-lock'));
+      
+      // Phase 2: Test Door Opening Component with scanned token
+      await tester.pumpWidget(MaterialApp(
+        home: OpenDoorPage(
+          grantToken: 'end-to-end-grant',
+          lockToken: capturedLockToken!,
+        ),
+      ));
+      
+      // Verify Door Opening Interface
       expect(find.byType(OpenDoorPage), findsOneWidget);
       expect(find.widgetWithText(AppBar, 'Open Door'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
 
-      // Phase 3: Door Opening Operation
+      // Phase 3: Test Door Opening Operation
       await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
       await tester.pump();
       
-      // Should show loading state
+      // Verify loading state
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       
       await tester.pumpAndSettle();
       
-      // Phase 4: Success State
+      // Phase 4: Verify Success State
       expect(find.text('Door opened!'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget); // Button should still be available

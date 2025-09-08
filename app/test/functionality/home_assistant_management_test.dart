@@ -58,12 +58,16 @@ void main() {
       expect(retryAttempted, isTrue);
     });
 
-    testWidgets('URL validation and processing workflow', (WidgetTester tester) async {
+    testWidgets('URL validation and processing workflow with real AddHomeAssistantPage', (WidgetTester tester) async {
       List<String> processedUrls = [];
+      List<String> processedCallbacks = [];
 
       await tester.pumpWidget(MaterialApp(
-        home: _TestUrlProcessor(
-          onUrlProcessed: (url) => processedUrls.add(url),
+        home: AddHomeAssistantPage(
+          onSubmit: (url, callback) async {
+            processedUrls.add(url);
+            processedCallbacks.add(callback);
+          },
         ),
       ));
 
@@ -75,8 +79,11 @@ void main() {
       ];
 
       for (final url in testUrls) {
-        await tester.enterText(find.byKey(const Key('url_input')), url);
-        await tester.tap(find.byKey(const Key('process_button')));
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Home Assistant Base URL'),
+          url
+        );
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
         await tester.pumpAndSettle();
       }
 
@@ -85,29 +92,55 @@ void main() {
       expect(processedUrls[0], equals('http://ha.local:8123')); // Trimmed
       expect(processedUrls[1], equals('https://homeassistant.example.com'));
       expect(processedUrls[2], equals('http://192.168.1.100:8123'));
+      
+      // Verify callbacks were generated
+      expect(processedCallbacks.length, equals(3));
+      for (final callback in processedCallbacks) {
+        expect(callback, isNotEmpty);
+      }
     });
 
-    testWidgets('Home Assistant management state changes', (WidgetTester tester) async {
-      List<String> stateChanges = [];
+    testWidgets('Home Assistant submission state management', (WidgetTester tester) async {
+      List<String> submissionStates = [];
+      bool isProcessing = false;
 
       await tester.pumpWidget(MaterialApp(
-        home: _TestStateManager(
-          onStateChange: (state) => stateChanges.add(state),
+        home: AddHomeAssistantPage(
+          onSubmit: (url, callback) async {
+            submissionStates.add('submitting');
+            // Simulate async processing
+            await Future.delayed(const Duration(milliseconds: 10));
+            submissionStates.add('completed');
+          },
         ),
       ));
 
-      // Test various state changes
-      await tester.tap(find.byKey(const Key('loading_button')));
-      await tester.pumpAndSettle();
-      expect(stateChanges, contains('loading'));
-
-      await tester.tap(find.byKey(const Key('error_button')));
-      await tester.pumpAndSettle();
-      expect(stateChanges, contains('error'));
-
-      await tester.tap(find.byKey(const Key('success_button')));
-      await tester.pumpAndSettle();
-      expect(stateChanges, contains('success'));
+      // Test submission state changes
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Home Assistant Base URL'),
+        'http://ha.example.com:8123'
+      );
+      
+      // Verify initial state
+      expect(find.widgetWithText(ElevatedButton, 'Add'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      
+      // Start submission
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pump(); // Trigger first frame of async operation
+      
+      // Should show loading state
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      
+      await tester.pumpAndSettle(); // Complete async operation
+      
+      // Should return to normal state
+      expect(find.widgetWithText(ElevatedButton, 'Add'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      
+      expect(submissionStates.length, equals(2));
+      expect(submissionStates[0], equals('submitting'));
+      expect(submissionStates[1], equals('completed'));
     });
 
     testWidgets('Home Assistant form validation workflow', (WidgetTester tester) async {
@@ -141,202 +174,91 @@ void main() {
       expect(validationTriggered, isTrue);
     });
 
-    testWidgets('Home Assistant configuration management', (WidgetTester tester) async {
-      Map<String, String> configurations = {};
+    testWidgets('Home Assistant configuration data capture', (WidgetTester tester) async {
+      Map<String, String> capturedConfigurations = {};
 
       await tester.pumpWidget(MaterialApp(
-        home: _TestConfigurationManager(
-          onConfigUpdate: (key, value) => configurations[key] = value,
+        home: AddHomeAssistantPage(
+          onSubmit: (url, callback) async {
+            capturedConfigurations['url'] = url;
+            capturedConfigurations['callback'] = callback;
+          },
         ),
       ));
 
-      // Test configuration management
-      await tester.enterText(find.byKey(const Key('config_key')), 'ha_url');
-      await tester.enterText(find.byKey(const Key('config_value')), 'http://ha.example.com:8123');
-      await tester.tap(find.byKey(const Key('save_config')));
+      // Test configuration capture with first URL
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Home Assistant Base URL'),
+        'http://ha.example.com:8123'
+      );
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
       await tester.pumpAndSettle();
 
-      expect(configurations['ha_url'], equals('http://ha.example.com:8123'));
+      expect(capturedConfigurations['url'], equals('http://ha.example.com:8123'));
+      expect(capturedConfigurations['callback'], isNotNull);
+      expect(capturedConfigurations['callback']!.isNotEmpty, isTrue);
 
-      // Test another configuration
-      await tester.enterText(find.byKey(const Key('config_key')), 'ha_name');
-      await tester.enterText(find.byKey(const Key('config_value')), 'Main Home Assistant');
-      await tester.tap(find.byKey(const Key('save_config')));
+      // Clear and test another configuration
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Home Assistant Base URL'),
+        'https://main-ha.local:8123'
+      );
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
       await tester.pumpAndSettle();
 
-      expect(configurations['ha_name'], equals('Main Home Assistant'));
-      expect(configurations.length, equals(2));
+      expect(capturedConfigurations['url'], equals('https://main-ha.local:8123'));
+      
+      // Verify callback format looks reasonable (contains protocol)
+      expect(capturedConfigurations['callback']!, contains('://'));
     });
 
-    testWidgets('Home Assistant connection workflow', (WidgetTester tester) async {
-      List<String> connectionSteps = [];
+    testWidgets('Home Assistant addition complete workflow', (WidgetTester tester) async {
+      List<String> workflowSteps = [];
+      List<String> submittedUrls = [];
 
       await tester.pumpWidget(MaterialApp(
-        home: _TestConnectionWorkflow(
-          onStep: (step) => connectionSteps.add(step),
+        home: AddHomeAssistantPage(
+          onSubmit: (url, callback) async {
+            workflowSteps.add('validation_passed');
+            submittedUrls.add(url);
+            workflowSteps.add('submission_started');
+            // Simulate network processing
+            await Future.delayed(const Duration(milliseconds: 5));
+            workflowSteps.add('submission_completed');
+          },
         ),
       ));
 
-      // Test connection workflow steps
-      await tester.tap(find.byKey(const Key('connect_button')));
+      // Test complete workflow steps
+      
+      // Step 1: Form validation (empty form should fail)
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
       await tester.pumpAndSettle();
-      expect(connectionSteps, contains('connecting'));
-
-      await tester.tap(find.byKey(const Key('auth_button')));
-      await tester.pumpAndSettle();
-      expect(connectionSteps, contains('authenticating'));
-
-      await tester.tap(find.byKey(const Key('verify_button')));
-      await tester.pumpAndSettle();
-      expect(connectionSteps, contains('verifying'));
-
+      
+      // Should show validation error
+      expect(find.text('Enter the base URL'), findsOneWidget);
+      expect(workflowSteps.isEmpty, isTrue); // No submission should occur
+      
+      // Step 2: Valid submission
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Home Assistant Base URL'),
+        'http://workflow-test.local:8123'
+      );
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pump(); // Start async operation
+      
+      // Should show loading state
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      
+      await tester.pumpAndSettle(); // Complete async operation
+      
       // Verify complete workflow
-      expect(connectionSteps.length, equals(3));
+      expect(workflowSteps.length, equals(3));
+      expect(workflowSteps[0], equals('validation_passed'));
+      expect(workflowSteps[1], equals('submission_started'));
+      expect(workflowSteps[2], equals('submission_completed'));
+      expect(submittedUrls.first, equals('http://workflow-test.local:8123'));
     });
   });
 }
 
-// Test helper for URL processing
-class _TestUrlProcessor extends StatefulWidget {
-  final Function(String) onUrlProcessed;
-  const _TestUrlProcessor({required this.onUrlProcessed});
-  
-  @override
-  State<_TestUrlProcessor> createState() => _TestUrlProcessorState();
-}
-
-class _TestUrlProcessorState extends State<_TestUrlProcessor> {
-  final _controller = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          TextField(
-            key: const Key('url_input'),
-            controller: _controller,
-          ),
-          ElevatedButton(
-            key: const Key('process_button'),
-            onPressed: () {
-              widget.onUrlProcessed(_controller.text.trim());
-            },
-            child: const Text('Process'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Test helper for state management
-class _TestStateManager extends StatefulWidget {
-  final Function(String) onStateChange;
-  const _TestStateManager({required this.onStateChange});
-  
-  @override
-  State<_TestStateManager> createState() => _TestStateManagerState();
-}
-
-class _TestStateManagerState extends State<_TestStateManager> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          ElevatedButton(
-            key: const Key('loading_button'),
-            onPressed: () => widget.onStateChange('loading'),
-            child: const Text('Loading'),
-          ),
-          ElevatedButton(
-            key: const Key('error_button'),
-            onPressed: () => widget.onStateChange('error'),
-            child: const Text('Error'),
-          ),
-          ElevatedButton(
-            key: const Key('success_button'),
-            onPressed: () => widget.onStateChange('success'),
-            child: const Text('Success'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Test helper for configuration management
-class _TestConfigurationManager extends StatefulWidget {
-  final Function(String, String) onConfigUpdate;
-  const _TestConfigurationManager({required this.onConfigUpdate});
-  
-  @override
-  State<_TestConfigurationManager> createState() => _TestConfigurationManagerState();
-}
-
-class _TestConfigurationManagerState extends State<_TestConfigurationManager> {
-  final _keyController = TextEditingController();
-  final _valueController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          TextField(
-            key: const Key('config_key'),
-            controller: _keyController,
-          ),
-          TextField(
-            key: const Key('config_value'),
-            controller: _valueController,
-          ),
-          ElevatedButton(
-            key: const Key('save_config'),
-            onPressed: () {
-              widget.onConfigUpdate(_keyController.text, _valueController.text);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Test helper for connection workflow
-class _TestConnectionWorkflow extends StatefulWidget {
-  final Function(String) onStep;
-  const _TestConnectionWorkflow({required this.onStep});
-  
-  @override
-  State<_TestConnectionWorkflow> createState() => _TestConnectionWorkflowState();
-}
-
-class _TestConnectionWorkflowState extends State<_TestConnectionWorkflow> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          ElevatedButton(
-            key: const Key('connect_button'),
-            onPressed: () => widget.onStep('connecting'),
-            child: const Text('Connect'),
-          ),
-          ElevatedButton(
-            key: const Key('auth_button'),
-            onPressed: () => widget.onStep('authenticating'),
-            child: const Text('Authenticate'),
-          ),
-          ElevatedButton(
-            key: const Key('verify_button'),
-            onPressed: () => widget.onStep('verifying'),
-            child: const Text('Verify'),
-          ),
-        ],
-      ),
-    );
-  }
-}
