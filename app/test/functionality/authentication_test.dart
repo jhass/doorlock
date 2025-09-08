@@ -5,15 +5,10 @@ import 'package:doorlock/sign_in_page.dart';
 void main() {
   group('Authentication Flow', () {
     testWidgets('Sign-in page displays correctly', (WidgetTester tester) async {
-      bool signInCalled = false;
-      String? lastUsername, lastPassword;
-
       await tester.pumpWidget(MaterialApp(
         home: SignInPage(
           onSignIn: (username, password) {
-            signInCalled = true;
-            lastUsername = username;
-            lastPassword = password;
+            // Test callback setup
           },
         ),
       ));

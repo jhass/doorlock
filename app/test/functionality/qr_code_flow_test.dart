@@ -5,12 +5,10 @@ import 'package:doorlock/grant_qr_scanner_page.dart';
 void main() {
   group('QR Code and Grant Flow', () {
     testWidgets('Grant QR Scanner page displays correctly', (WidgetTester tester) async {
-      String? scannedCode;
-
       await tester.pumpWidget(MaterialApp(
         home: GrantQrScannerPage(
           onScanned: (code) {
-            scannedCode = code;
+            // Test callback setup
           },
         ),
       ));
@@ -85,12 +83,10 @@ void main() {
     });
 
     testWidgets('QR Scanner callback functionality', (WidgetTester tester) async {
-      String? capturedCode;
-
       await tester.pumpWidget(MaterialApp(
         home: GrantQrScannerPage(
           onScanned: (code) {
-            capturedCode = code;
+            // Test callback setup
           },
         ),
       ));
@@ -104,8 +100,6 @@ void main() {
     });
 
     testWidgets('QR flow navigation pattern', (WidgetTester tester) async {
-      String? scannedCode;
-
       await tester.pumpWidget(MaterialApp(
         home: Builder(
           builder: (context) => Scaffold(
@@ -117,7 +111,6 @@ void main() {
                     MaterialPageRoute(
                       builder: (context) => GrantQrScannerPage(
                         onScanned: (code) {
-                          scannedCode = code;
                           Navigator.of(context).pop();
                         },
                       ),
