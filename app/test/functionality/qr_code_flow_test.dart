@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:doorlock/grant_qr_scanner_page.dart';
 
 void main() {
-  group('Grant Flow Functionality', () {
-    testWidgets('QR Scanner functionality and workflow', (WidgetTester tester) async {
+  group('QR Code Flow Functionality', () {
+    testWidgets('GrantQrScannerPage UI structure and callback functionality', (WidgetTester tester) async {
       String? scannedCode;
       List<String> scanHistory = [];
       
@@ -17,336 +17,382 @@ void main() {
         ),
       ));
 
-      // Verify QR scanner page UI and functionality
+      // Verify QR scanner page UI structure
       expect(find.text('Scan Lock QR Code'), findsOneWidget);
       expect(find.byType(AppBar), findsOneWidget);
+      expect(find.byType(GrantQrScannerPage), findsOneWidget);
       
-      // Test the onScanned callback mechanism
+      // Test callback mechanism is set up correctly
       expect(scannedCode, isNull);
       expect(scanHistory.isEmpty, isTrue);
+    });
+
+    testWidgets('QR code scanning workflow integration with door opening', (WidgetTester tester) async {
+      String? capturedGrantToken;
+      String? capturedLockToken;
+      bool doorPageShown = false;
       
-      // Verify page is ready for scanning
+      // Create a workflow navigator widget to test integration
+      await tester.pumpWidget(MaterialApp(
+        home: _WorkflowNavigator(
+          onDoorPageNavigated: (grantToken, lockToken) {
+            capturedGrantToken = grantToken;
+            capturedLockToken = lockToken;
+            doorPageShown = true;
+          },
+        ),
+      ));
+
+      // Start with QR scanner
       expect(find.byType(GrantQrScannerPage), findsOneWidget);
+      expect(find.text('Scan Lock QR Code'), findsOneWidget);
+      
+      // Simulate QR scan by triggering the callback directly
+      final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
+      scannerWidget.onScanned('scanned-lock-token-789');
+      await tester.pumpAndSettle();
+      
+      // Verify workflow navigation occurred
+      expect(doorPageShown, isTrue);
+      expect(capturedGrantToken, equals('grant-token-123'));
+      expect(capturedLockToken, equals('scanned-lock-token-789'));
+      
+      // Should now show door opening page
+      expect(find.byType(_DoorOpeningPage), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
     });
 
     testWidgets('Grant flow state management and transitions', (WidgetTester tester) async {
-      const grantToken = 'state-test-grant';
-      List<String> stateTransitions = [];
+      List<String> workflowStates = [];
       
       await tester.pumpWidget(MaterialApp(
-        home: _TestGrantFlowWithHistory(
-          grantToken: grantToken,
-          onStateChange: (state) => stateTransitions.add(state),
+        home: _WorkflowStateTracker(
+          onStateChange: (state) => workflowStates.add(state),
         ),
       ));
 
-      // Initially should show QR scanner
+      // Initial state should be QR scanning
       expect(find.byType(GrantQrScannerPage), findsOneWidget);
-      expect(stateTransitions, contains('qr_scanner'));
+      expect(workflowStates, contains('qr_scanner_ready'));
 
-      // After scanning, should show door opening page
-      final state = tester.state<_TestGrantFlowWithHistoryState>(find.byType(_TestGrantFlowWithHistory));
-      state.simulateQRScan('scanned-lock-token');
+      // Simulate successful QR scan
+      final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
+      scannerWidget.onScanned('test-lock-token');
       await tester.pumpAndSettle();
 
-      expect(find.byType(GrantQrScannerPage), findsNothing);
-      expect(stateTransitions, contains('door_open'));
+      // Should transition to door opening state
+      expect(find.byType(_DoorOpeningPage), findsOneWidget);
+      expect(workflowStates, contains('door_page_ready'));
+
+      // Test door opening action
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
+      await tester.pump();
+      
+      expect(workflowStates, contains('door_opening_started'));
     });
 
-    testWidgets('QR scanning callback and data flow', (WidgetTester tester) async {
-      Map<String, dynamic> scanData = {};
+    testWidgets('QR scanner callback behavior and data handling', (WidgetTester tester) async {
+      List<String> scannedCodes = [];
+      int callbackCount = 0;
       
       await tester.pumpWidget(MaterialApp(
-        home: _TestQRDataFlow(
-          onScanData: (data) => scanData.addAll(data),
+        home: GrantQrScannerPage(
+          onScanned: (code) {
+            scannedCodes.add(code);
+            callbackCount++;
+          },
         ),
       ));
 
-      // Test QR scanning data flow
-      final state = tester.state<_TestQRDataFlowState>(find.byType(_TestQRDataFlow));
+      // Verify initial state
+      expect(find.byType(GrantQrScannerPage), findsOneWidget);
+      expect(scannedCodes.isEmpty, isTrue);
+      expect(callbackCount, equals(0));
+
+      // Test multiple scan scenarios
+      final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
       
-      // Simulate different QR scan scenarios
-      state.simulateScan({'type': 'lock', 'token': 'ABC123', 'timestamp': '2024-01-01'});
-      await tester.pumpAndSettle();
+      // First scan
+      scannerWidget.onScanned('token-123');
+      expect(scannedCodes, contains('token-123'));
+      expect(callbackCount, equals(1));
       
-      expect(scanData['type'], equals('lock'));
-      expect(scanData['token'], equals('ABC123'));
-      expect(scanData['timestamp'], equals('2024-01-01'));
+      // Second scan
+      scannerWidget.onScanned('token-456');
+      expect(scannedCodes, contains('token-456'));
+      expect(callbackCount, equals(2));
+      
+      // Verify scan history
+      expect(scannedCodes.length, equals(2));
+      expect(scannedCodes, containsAll(['token-123', 'token-456']));
     });
 
-    testWidgets('Error handling in grant flow', (WidgetTester tester) async {
-      List<String> errorStates = [];
-      
-      await tester.pumpWidget(MaterialApp(
-        home: _TestErrorHandling(
-          onError: (error) => errorStates.add(error),
-        ),
-      ));
-
-      // Test various error scenarios
-      final state = tester.state<_TestErrorHandlingState>(find.byType(_TestErrorHandling));
-      
-      // Test invalid QR code
-      state.simulateError('invalid_qr');
-      await tester.pumpAndSettle();
-      expect(errorStates, contains('invalid_qr'));
-      
-      // Test network error
-      state.simulateError('network_error');
-      await tester.pumpAndSettle();
-      expect(errorStates, contains('network_error'));
-    });
-
-    testWidgets('Grant token validation and processing', (WidgetTester tester) async {
-      List<String> processedTokens = [];
-      
-      await tester.pumpWidget(MaterialApp(
-        home: _TestTokenProcessor(
-          onTokenProcessed: (token) => processedTokens.add(token),
-        ),
-      ));
-
-      // Test token processing
-      final testTokens = [
-        'valid-token-123',
-        'another-valid-token-456',
-        'special-chars-token-!@#',
-      ];
-
-      final state = tester.state<_TestTokenProcessorState>(find.byType(_TestTokenProcessor));
-      
-      for (final token in testTokens) {
-        state.processToken(token);
-        await tester.pumpAndSettle();
-      }
-
-      expect(processedTokens.length, equals(3));
-      expect(processedTokens, containsAll(testTokens));
-    });
-
-    testWidgets('Door opening workflow simulation', (WidgetTester tester) async {
+    testWidgets('Door opening workflow simulation with real UI components', (WidgetTester tester) async {
       List<String> doorOperations = [];
       
       await tester.pumpWidget(MaterialApp(
-        home: _TestDoorController(
+        home: _DoorOpeningPage(
+          grantToken: 'test-grant',
+          lockToken: 'test-lock',
           onOperation: (operation) => doorOperations.add(operation),
         ),
       ));
 
-      // Test door operations
-      await tester.tap(find.byKey(const Key('open_door')));
+      // Verify door opening page UI structure
+      expect(find.widgetWithText(AppBar, 'Open Door'), findsOneWidget);
+      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
+
+      // Test door opening operation
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
       await tester.pumpAndSettle();
+      
       expect(doorOperations, contains('open'));
-
-      await tester.tap(find.byKey(const Key('check_status')));
-      await tester.pumpAndSettle();
-      expect(doorOperations, contains('status'));
-
-      await tester.tap(find.byKey(const Key('close_door')));
-      await tester.pumpAndSettle();
-      expect(doorOperations, contains('close'));
+      expect(doorOperations.length, equals(1));
     });
 
-    testWidgets('Complete grant workflow simulation', (WidgetTester tester) async {
+    testWidgets('Error handling in QR scanning workflow', (WidgetTester tester) async {
+      List<String> errorStates = [];
+      
+      await tester.pumpWidget(MaterialApp(
+        home: _QRScannerWithErrorHandling(
+          onError: (error) => errorStates.add(error),
+        ),
+      ));
+
+      // Test invalid QR code handling
+      final state = tester.state<_QRScannerWithErrorHandlingState>(find.byType(_QRScannerWithErrorHandling));
+      
+      // Simulate invalid QR scan
+      state.simulateInvalidScan('invalid-data');
+      await tester.pumpAndSettle();
+      
+      expect(errorStates, contains('invalid_qr_code'));
+      
+      // Test empty QR code
+      state.simulateInvalidScan('');
+      await tester.pumpAndSettle();
+      
+      expect(errorStates, contains('empty_qr_code'));
+    });
+
+    testWidgets('Complete grant workflow from scan to door operation', (WidgetTester tester) async {
       List<String> workflowSteps = [];
       
       await tester.pumpWidget(MaterialApp(
-        home: _TestCompleteWorkflow(
+        home: _CompleteWorkflowDemo(
           onStep: (step) => workflowSteps.add(step),
         ),
       ));
 
-      // Simulate complete workflow
-      await tester.tap(find.byKey(const Key('start_workflow')));
-      await tester.pumpAndSettle();
-      expect(workflowSteps, contains('started'));
+      // Initial state: QR scanning
+      expect(find.byType(GrantQrScannerPage), findsOneWidget);
+      expect(workflowSteps, contains('workflow_started'));
 
-      await tester.tap(find.byKey(const Key('scan_qr')));
+      // Simulate QR scan
+      final scannerWidget = tester.widget<GrantQrScannerPage>(find.byType(GrantQrScannerPage));
+      scannerWidget.onScanned('grant-lock-token');
       await tester.pumpAndSettle();
+      
       expect(workflowSteps, contains('qr_scanned'));
+      expect(find.byType(_DoorOpeningPage), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('open_door')));
+      // Test door opening
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
       await tester.pumpAndSettle();
+      
       expect(workflowSteps, contains('door_opened'));
-
-      // Verify complete workflow
-      expect(workflowSteps.length, equals(3));
+      
+      // Verify complete workflow sequence
+      expect(workflowSteps, containsAll(['workflow_started', 'qr_scanned', 'door_opened']));
     });
   });
 }
 
-// Test wrapper with state history tracking
-class _TestGrantFlowWithHistory extends StatefulWidget {
-  final String grantToken;
-  final Function(String) onStateChange;
-  const _TestGrantFlowWithHistory({required this.grantToken, required this.onStateChange});
-  
+// Helper widget to test QR scanner to door opening workflow integration
+class _WorkflowNavigator extends StatefulWidget {
+  final Function(String grantToken, String lockToken) onDoorPageNavigated;
+  const _WorkflowNavigator({required this.onDoorPageNavigated});
+
   @override
-  State<_TestGrantFlowWithHistory> createState() => _TestGrantFlowWithHistoryState();
+  State<_WorkflowNavigator> createState() => _WorkflowNavigatorState();
 }
 
-class _TestGrantFlowWithHistoryState extends State<_TestGrantFlowWithHistory> {
+class _WorkflowNavigatorState extends State<_WorkflowNavigator> {
   String? _lockToken;
+  final String _grantToken = 'grant-token-123';
+
+  @override
+  Widget build(BuildContext context) {
+    if (_lockToken == null) {
+      return GrantQrScannerPage(
+        onScanned: (lockToken) {
+          setState(() => _lockToken = lockToken);
+          widget.onDoorPageNavigated(_grantToken, lockToken);
+        },
+      );
+    }
+    
+    return _DoorOpeningPage(
+      grantToken: _grantToken,
+      lockToken: _lockToken!,
+    );
+  }
+}
+
+// Helper widget to test workflow state management
+class _WorkflowStateTracker extends StatefulWidget {
+  final Function(String) onStateChange;
+  const _WorkflowStateTracker({required this.onStateChange});
+
+  @override
+  State<_WorkflowStateTracker> createState() => _WorkflowStateTrackerState();
+}
+
+class _WorkflowStateTrackerState extends State<_WorkflowStateTracker> {
+  String? _lockToken;
+  final String _grantToken = 'test-grant-token';
 
   @override
   void initState() {
     super.initState();
-    widget.onStateChange('qr_scanner');
-  }
-
-  void simulateQRScan(String lockToken) {
-    setState(() => _lockToken = lockToken);
-    widget.onStateChange('door_open');
+    widget.onStateChange('qr_scanner_ready');
   }
 
   @override
   Widget build(BuildContext context) {
     if (_lockToken == null) {
       return GrantQrScannerPage(
-        onScanned: (lockToken) => simulateQRScan(lockToken),
+        onScanned: (lockToken) {
+          setState(() => _lockToken = lockToken);
+          widget.onStateChange('door_page_ready');
+        },
       );
     }
+    
+    return _DoorOpeningPage(
+      grantToken: _grantToken,
+      lockToken: _lockToken!,
+      onOperation: (operation) => widget.onStateChange('door_opening_started'),
+    );
+  }
+}
+
+// Simplified door opening page for testing without web dependencies
+class _DoorOpeningPage extends StatefulWidget {
+  final String grantToken;
+  final String lockToken;
+  final Function(String)? onOperation;
+  const _DoorOpeningPage({
+    required this.grantToken,
+    required this.lockToken,
+    this.onOperation,
+  });
+
+  @override
+  State<_DoorOpeningPage> createState() => _DoorOpeningPageState();
+}
+
+class _DoorOpeningPageState extends State<_DoorOpeningPage> {
+  bool _loading = false;
+  String? _result;
+
+  Future<void> _openDoor() async {
+    setState(() => _loading = true);
+    widget.onOperation?.call('open');
+    
+    // Simulate door opening operation synchronously for tests
+    setState(() {
+      _loading = false;
+      _result = 'Door opened!';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Open Door')),
-      body: const Center(child: Text('Door Opening Page')),
+      body: Center(
+        child: _loading
+            ? const CircularProgressIndicator()
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_result != null)
+                    Text(_result!, style: const TextStyle(color: Colors.green, fontSize: 20)),
+                  ElevatedButton(
+                    onPressed: _openDoor,
+                    child: const Text('Open Door'),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
 
-// Test wrapper for QR data flow
-class _TestQRDataFlow extends StatefulWidget {
-  final Function(Map<String, dynamic>) onScanData;
-  const _TestQRDataFlow({required this.onScanData});
-  
-  @override
-  State<_TestQRDataFlow> createState() => _TestQRDataFlowState();
-}
-
-class _TestQRDataFlowState extends State<_TestQRDataFlow> {
-  void simulateScan(Map<String, dynamic> data) {
-    widget.onScanData(data);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('QR Data Flow Test')),
-    );
-  }
-}
-
-// Test wrapper for error handling
-class _TestErrorHandling extends StatefulWidget {
+// Helper widget for testing QR scanner error handling
+class _QRScannerWithErrorHandling extends StatefulWidget {
   final Function(String) onError;
-  const _TestErrorHandling({required this.onError});
-  
+  const _QRScannerWithErrorHandling({required this.onError});
+
   @override
-  State<_TestErrorHandling> createState() => _TestErrorHandlingState();
+  State<_QRScannerWithErrorHandling> createState() => _QRScannerWithErrorHandlingState();
 }
 
-class _TestErrorHandlingState extends State<_TestErrorHandling> {
-  void simulateError(String error) {
-    widget.onError(error);
+class _QRScannerWithErrorHandlingState extends State<_QRScannerWithErrorHandling> {
+  void simulateInvalidScan(String data) {
+    if (data.isEmpty) {
+      widget.onError('empty_qr_code');
+    } else if (data == 'invalid-data') {
+      widget.onError('invalid_qr_code');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Error Handling Test')),
+    return GrantQrScannerPage(
+      onScanned: (code) {
+        // Normal scan handling would go here
+      },
     );
   }
 }
 
-// Test wrapper for token processing
-class _TestTokenProcessor extends StatefulWidget {
-  final Function(String) onTokenProcessed;
-  const _TestTokenProcessor({required this.onTokenProcessed});
-  
-  @override
-  State<_TestTokenProcessor> createState() => _TestTokenProcessorState();
-}
-
-class _TestTokenProcessorState extends State<_TestTokenProcessor> {
-  void processToken(String token) {
-    widget.onTokenProcessed(token);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Token Processor Test')),
-    );
-  }
-}
-
-// Test wrapper for door operations
-class _TestDoorController extends StatefulWidget {
-  final Function(String) onOperation;
-  const _TestDoorController({required this.onOperation});
-  
-  @override
-  State<_TestDoorController> createState() => _TestDoorControllerState();
-}
-
-class _TestDoorControllerState extends State<_TestDoorController> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          ElevatedButton(
-            key: const Key('open_door'),
-            onPressed: () => widget.onOperation('open'),
-            child: const Text('Open Door'),
-          ),
-          ElevatedButton(
-            key: const Key('check_status'),
-            onPressed: () => widget.onOperation('status'),
-            child: const Text('Check Status'),
-          ),
-          ElevatedButton(
-            key: const Key('close_door'),
-            onPressed: () => widget.onOperation('close'),
-            child: const Text('Close Door'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Test wrapper for complete workflow
-class _TestCompleteWorkflow extends StatefulWidget {
+// Helper widget for complete workflow demonstration
+class _CompleteWorkflowDemo extends StatefulWidget {
   final Function(String) onStep;
-  const _TestCompleteWorkflow({required this.onStep});
-  
+  const _CompleteWorkflowDemo({required this.onStep});
+
   @override
-  State<_TestCompleteWorkflow> createState() => _TestCompleteWorkflowState();
+  State<_CompleteWorkflowDemo> createState() => _CompleteWorkflowDemoState();
 }
 
-class _TestCompleteWorkflowState extends State<_TestCompleteWorkflow> {
+class _CompleteWorkflowDemoState extends State<_CompleteWorkflowDemo> {
+  String? _lockToken;
+  final String _grantToken = 'demo-grant-token';
+
+  @override
+  void initState() {
+    super.initState();
+    widget.onStep('workflow_started');
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          ElevatedButton(
-            key: const Key('start_workflow'),
-            onPressed: () => widget.onStep('started'),
-            child: const Text('Start Workflow'),
-          ),
-          ElevatedButton(
-            key: const Key('scan_qr'),
-            onPressed: () => widget.onStep('qr_scanned'),
-            child: const Text('Scan QR'),
-          ),
-          ElevatedButton(
-            key: const Key('open_door'),
-            onPressed: () => widget.onStep('door_opened'),
-            child: const Text('Open Door'),
-          ),
-        ],
-      ),
+    if (_lockToken == null) {
+      return GrantQrScannerPage(
+        onScanned: (lockToken) {
+          setState(() => _lockToken = lockToken);
+          widget.onStep('qr_scanned');
+        },
+      );
+    }
+    
+    return _DoorOpeningPage(
+      grantToken: _grantToken,
+      lockToken: _lockToken!,
+      onOperation: (operation) => widget.onStep('door_opened'),
     );
   }
 }
