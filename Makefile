@@ -54,3 +54,7 @@ dev: dev-setup ## Quick start: setup and start development environment
 widget-test: ## Run working widget integration tests (RECOMMENDED)
 	./scripts/run_integration_tests.sh
 
+# Set up integration test environment with real PocketBase and seeded data
+setup-integration-env: ## Set up PocketBase with test data for manual integration testing
+	./scripts/setup_integration_environment.sh
+
