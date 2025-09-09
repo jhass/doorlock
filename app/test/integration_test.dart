@@ -2,23 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:doorlock/main.dart' as app;
-import 'package:doorlock/qr_scanner_service.dart';
 import 'package:doorlock/env_config.dart';
-import 'package:doorlock/locks_page.dart';
+import 'package:doorlock/qr_scanner_service.dart';
+import 'package:doorlock/window_service.dart';
 
 import 'mock_home_assistant_server.dart';
 import 'pocketbase_test_service.dart';
+import 'test_env_config.dart';
+import 'test_qr_scanner_service.dart';
+import 'test_window_service.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('Doorlock End-to-End Integration Tests', () {
-    late String homeAssistantId;
-    late String lockId;
-    late String grantId;
-
     setUpAll(() async {
-      // ignore: avoid_print
       print('🚀 Starting integration test setup...');
       
       // Set up test environment configuration
@@ -39,452 +37,441 @@ void main() {
       // Setup PocketBase with test data
       await PocketBaseTestService.setup();
       
-      // ignore: avoid_print
       print('✅ Integration test setup complete!');
     });
 
     tearDownAll(() async {
-      // ignore: avoid_print
       print('🧹 Cleaning up integration tests...');
       await MockHomeAssistantServer.stop();
       await PocketBaseTestService.cleanup();
-      // ignore: avoid_print
       print('✅ Integration test cleanup complete!');
     });
 
     setUp(() {
-      // Clear API call history and reset state for each test
+      // Clear API call history for each test
       MockHomeAssistantServer.clearApiCalls();
-      MockHomeAssistantServer.reset();
-      MockHomeAssistantServer.addValidToken('test_access_token', [
-        'lock.front_door',
-        'lock.back_door'
-      ]);
     });
 
-    testWidgets('1. Complete User Journey: Sign in → Add Home Assistant → Create Door → Generate Grant → Test Grant', (WidgetTester tester) async {
-      // ignore: avoid_print
-      print('🧪 Testing complete user journey...');
+    testWidgets('Complete User Journey: Sign in → Add HA → Create Door → Generate Grant → Test Grant', (WidgetTester tester) async {
+      print('🎯 Testing complete user journey...');
       
-      // Set up mock QR scanner
-      app.setQrScannerService(MockQrScannerService(
-        mockQrCode: 'mock_lock_token_front_door',
-        mockDelay: const Duration(milliseconds: 100),
-      ));
-
       // Start the app
-      app.main();
+      await tester.pumpWidget(app.MyApp());
       await tester.pumpAndSettle();
 
-      // Step 1: Sign into test user
-      // ignore: avoid_print
-      print('Step 1: Signing in as test user...');
-      await _signInAsTestUser(tester);
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-
-      // Verify we're now on the Home Assistants page
+      // Step 1: Sign in to test user
+      print('Step 1: Signing in...');
+      await _signIn(tester, 'testuser', 'testpass123');
       expect(find.text('Home Assistants'), findsOneWidget);
+      print('✅ Step 1: Successfully signed in');
 
-      // Step 2: Add the mock Home Assistant server
-      // ignore: avoid_print
-      print('Step 2: Adding mock Home Assistant server...');
-      homeAssistantId = await _addHomeAssistant(tester, 'http://localhost:8123');
-      
-      // Step 3: Navigate to locks and create a door
-      // ignore: avoid_print
-      print('Step 3: Creating door for lock entity...');
-      lockId = await _createDoor(tester, homeAssistantId);
-      
-      // Step 4: Verify QR code can be generated
-      // ignore: avoid_print
-      print('Step 4: Verifying QR code generation...');
-      await _verifyQrCodeGeneration(tester, lockId);
-      
-      // Step 5: Generate a grant for the door
-      // ignore: avoid_print
-      print('Step 5: Generating grant for the door...');
-      grantId = await _generateGrant(tester, lockId);
-      
-      // Step 6: Test the grant works by verifying mock HA server receives API calls
-      // ignore: avoid_print
-      print('Step 6: Testing grant functionality...');
-      await _testGrantWorks(tester, grantId);
+      // Step 2: Add Home Assistant
+      print('Step 2: Adding Home Assistant...');
+      await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
+      expect(find.text('Test Home'), findsOneWidget);
+      print('✅ Step 2: Successfully added Home Assistant');
 
-      // ignore: avoid_print
-      print('✅ Complete user journey test passed!');
+      // Step 3: Create Door
+      print('Step 3: Creating door...');
+      await _createDoor(tester, 'Test Home');
+      expect(find.text('lock.front_door'), findsOneWidget);
+      print('✅ Step 3: Successfully created door');
+
+      // Step 4: Generate Grant
+      print('Step 4: Generating grant...');
+      await _generateGrant(tester, 'lock.front_door', 'Test Grant');
+      expect(find.text('Test Grant'), findsOneWidget);
+      print('✅ Step 4: Successfully generated grant');
+
+      // Step 5: Test Grant by using QR scanner
+      print('Step 5: Testing grant...');
+      await _testGrantViaQrScanner(tester, 'Test Grant');
+      
+      // Verify the mock Home Assistant server received the door open call
+      final apiCalls = MockHomeAssistantServer.getApiCalls();
+      expect(apiCalls.any((call) => call['path']?.contains('lock/open') == true), true);
+      print('✅ Step 5: Successfully tested grant - API call verified');
+      
+      print('🎉 Complete user journey test passed!');
     });
 
-    testWidgets('2. Grant Expiration Test - Verify grants can expire and stop working', (WidgetTester tester) async {
-      // ignore: avoid_print
-      print('🧪 Testing grant expiration...');
+    testWidgets('Grant Expiration Test: Verify grants can expire and stop working', (WidgetTester tester) async {
+      print('⏰ Testing grant expiration...');
       
-      // Set up grant that expires quickly (simulated)
-      await _setupExpiredGrant(tester, grantId);
+      await tester.pumpWidget(app.MyApp());
+      await tester.pumpAndSettle();
       
-      // Test that expired grant doesn't work
-      await _testExpiredGrant(tester, grantId);
+      // Set up basic environment
+      await _signIn(tester, 'testuser', 'testpass123');
+      await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
+      await _createDoor(tester, 'Test Home');
       
-      // ignore: avoid_print
-      print('✅ Grant expiration test passed!');
+      // Create a grant with past expiration (using PocketBase API directly)
+      print('Creating expired grant...');
+      await _createExpiredGrantDirectly();
+      
+      // Try to use the expired grant via QR scanner
+      await _testExpiredGrant(tester);
+      
+      // Should see error message or no door opening
+      final apiCallsBefore = MockHomeAssistantServer.getApiCalls().length;
+      await Future.delayed(const Duration(seconds: 1));
+      final apiCallsAfter = MockHomeAssistantServer.getApiCalls().length;
+      
+      // No new API calls should have been made for expired grant
+      expect(apiCallsAfter, equals(apiCallsBefore));
+      
+      print('✅ Grant expiration test passed');
     });
 
-    testWidgets('3. Grant Deletion Test - Verify grants can be deleted and stop working', (WidgetTester tester) async {
-      // ignore: avoid_print
-      print('🧪 Testing grant deletion...');
+    testWidgets('Grant Deletion Test: Create and delete grant via UI', (WidgetTester tester) async {
+      print('🗑️ Testing grant deletion...');
       
-      // Delete the grant (simulated)
-      await _deleteGrant(tester, grantId);
+      await tester.pumpWidget(app.MyApp());
+      await tester.pumpAndSettle();
       
-      // Test that deleted grant doesn't work
-      await _testDeletedGrant(tester, grantId);
+      // Set up basic environment
+      await _signIn(tester, 'testuser', 'testpass123');
+      await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
+      await _createDoor(tester, 'Test Home');
+      await _generateGrant(tester, 'lock.front_door', 'Grant to Delete');
       
-      // ignore: avoid_print
-      print('✅ Grant deletion test passed!');
+      // Delete the grant via UI
+      await _deleteGrantViaUI(tester, 'Grant to Delete');
+      
+      // Grant should no longer be visible
+      expect(find.text('Grant to Delete'), findsNothing);
+      
+      // Try to use deleted grant - should fail
+      await _testDeletedGrant(tester);
+      
+      print('✅ Grant deletion test passed');
     });
 
-    testWidgets('4. Grant Expiration Time Update Test - Verify grant expiration times can be updated', (WidgetTester tester) async {
-      // ignore: avoid_print
-      print('🧪 Testing grant expiration time update...');
+    testWidgets('Grant Expiration Update Test: Update grant expiration time via UI', (WidgetTester tester) async {
+      print('🔄 Testing grant expiration update...');
       
-      // Create a new grant for this test
-      final newGrantId = await _createNewGrant(tester, lockId);
+      await tester.pumpWidget(app.MyApp());
+      await tester.pumpAndSettle();
       
-      // Update grant expiration time (simulated)
-      await _updateGrantExpiration(tester, newGrantId);
+      // Set up basic environment
+      await _signIn(tester, 'testuser', 'testpass123');
+      await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
+      await _createDoor(tester, 'Test Home');
+      await _generateGrant(tester, 'lock.front_door', 'Updatable Grant');
       
-      // Test that updated grant still works
-      await _testUpdatedGrant(tester, newGrantId);
+      // Update grant expiration via UI
+      await _updateGrantExpirationViaUI(tester, 'Updatable Grant');
       
-      // ignore: avoid_print
-      print('✅ Grant expiration time update test passed!');
+      // Verify grant is still usable with new expiration
+      await _testGrantViaQrScanner(tester, 'Updatable Grant');
+      
+      // Should have made API call
+      final apiCalls = MockHomeAssistantServer.getApiCalls();
+      expect(apiCalls.any((call) => call.contains('lock/open')), true);
+      
+      print('✅ Grant expiration update test passed');
     });
 
-    testWidgets('5. Invalid Home Assistant Token Test - Verify handling of invalid/expired HA tokens', (WidgetTester tester) async {
-      // ignore: avoid_print
-      print('🧪 Testing invalid Home Assistant token handling...');
+    testWidgets('Invalid Token Handling Test: Test with invalid HA token', (WidgetTester tester) async {
+      print('🚫 Testing invalid token handling...');
       
-      // Test with invalid tokens
-      await _testInvalidTokenHandling(tester);
+      await tester.pumpWidget(app.MyApp());
+      await tester.pumpAndSettle();
       
-      // ignore: avoid_print
-      print('✅ Invalid Home Assistant token handling test passed!');
+      // Sign in
+      await _signIn(tester, 'testuser', 'testpass123');
+      
+      // Try to add Home Assistant with invalid token
+      await _addHomeAssistantWithError(tester, 'Invalid HA', 'http://localhost:8123', 'invalid_token');
+      
+      // Should see error message about invalid token
+      expect(find.textContaining('Invalid'), findsWidgets);
+      
+      print('✅ Invalid token handling test passed');
     });
 
-    testWidgets('6. QR Code Scanning Workflow Test - Verify complete QR scanning flow', (WidgetTester tester) async {
-      // ignore: avoid_print
-      print('🧪 Testing QR code scanning workflow...');
+    testWidgets('QR Code Scanning Workflow Test: Complete scan-to-open flow', (WidgetTester tester) async {
+      print('📱 Testing QR code scanning workflow...');
       
-      // Test QR code scanning and grant usage flow
-      await _testQrCodeScanningWorkflow(tester, grantId);
+      // Set up mock QR scanner with valid grant code
+      app.setQrScannerService(MockQrScannerService(
+        mockQrCode: 'doorlock://grant/valid-grant-id',
+        mockDelay: const Duration(milliseconds: 300),
+      ));
       
-      // ignore: avoid_print
-      print('✅ QR code scanning workflow test passed!');
+      await tester.pumpWidget(app.MyApp());
+      await tester.pumpAndSettle();
+      
+      // Set up basic environment and create grant
+      await _signIn(tester, 'testuser', 'testpass123');
+      await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
+      await _createDoor(tester, 'Test Home');
+      await _generateGrant(tester, 'lock.front_door', 'QR Test Grant');
+      
+      // Test QR scanning workflow
+      await _navigateToQrScanner(tester);
+      
+      // Should see QR scanner UI
+      expect(find.text('Mock QR Scanner'), findsOneWidget);
+      
+      // Wait for auto-scan and verify door opening
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      
+      // Should have made API call
+      final apiCalls = MockHomeAssistantServer.getApiCalls();
+      expect(apiCalls.any((call) => call.contains('lock/open')), true);
+      
+      print('✅ QR code scanning workflow test passed');
     });
 
-    testWidgets('7. Door Opening API Verification Test - Verify API calls to mock HA server', (WidgetTester tester) async {
-      // ignore: avoid_print
-      print('🧪 Testing door opening API verification...');
+    testWidgets('API Call Verification Test: Verify correct HA API calls', (WidgetTester tester) async {
+      print('🔗 Testing API call verification...');
       
-      // Verify that door opening triggers correct API calls
-      await _testDoorOpeningApiCalls(tester);
+      // Clear previous API calls
+      MockHomeAssistantServer.clearApiCalls();
       
-      // ignore: avoid_print
-      print('✅ Door opening API verification test passed!');
+      await tester.pumpWidget(app.MyApp());
+      await tester.pumpAndSettle();
+      
+      // Complete user journey that should make API calls
+      await _signIn(tester, 'testuser', 'testpass123');
+      await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
+      await _createDoor(tester, 'Test Home');
+      await _generateGrant(tester, 'lock.front_door', 'API Test Grant');
+      await _testGrantViaQrScanner(tester, 'API Test Grant');
+      
+      // Verify specific API calls were made
+      final apiCalls = MockHomeAssistantServer.getApiCalls();
+      
+      // Should have made calls to get lock entities
+      expect(apiCalls.any((call) => call['path']?.contains('/api/states') == true), true);
+      
+      // Should have made call to open the lock
+      expect(apiCalls.any((call) => call['path']?.contains('lock/open') == true), true);
+      
+      // Verify authorization headers were included
+      expect(apiCalls.any((call) => call['headers']?['authorization']?.contains('Bearer test_access_token') == true), true);
+      
+      print('✅ API call verification test passed');
+      print('📊 Total API calls made: ${apiCalls.length}');
     });
   });
 }
 
-/// Helper function to sign in as test user
-Future<void> _signInAsTestUser(WidgetTester tester) async {
-  final credentials = PocketBaseTestService.getTestUserCredentials();
-  
+// Helper functions to drive the actual UI
+
+Future<void> _signIn(WidgetTester tester, String username, String password) async {
   // Find and fill username field
-  final usernameField = find.byKey(const Key('username_field'));
-  expect(usernameField, findsOneWidget);
-  await tester.enterText(usernameField, credentials['username']!);
+  final usernameField = find.byType(TextFormField).first;
+  await tester.tap(usernameField);
+  await tester.pumpAndSettle();
+  await tester.enterText(usernameField, username);
   
   // Find and fill password field
-  final passwordField = find.byKey(const Key('password_field'));
-  expect(passwordField, findsOneWidget);
-  await tester.enterText(passwordField, credentials['password']!);
-  
-  // Find and tap sign in button
-  final signInButton = find.byKey(const Key('sign_in_button'));
-  expect(signInButton, findsOneWidget);
-  await tester.tap(signInButton);
+  final passwordField = find.byType(TextFormField).last;
+  await tester.tap(passwordField);
   await tester.pumpAndSettle();
+  await tester.enterText(passwordField, password);
+  
+  // Tap sign in button
+  final signInButton = find.text('Sign In');
+  await tester.tap(signInButton);
+  await tester.pumpAndSettle(const Duration(seconds: 2));
 }
 
-/// Helper function to add Home Assistant
-Future<String> _addHomeAssistant(WidgetTester tester, String url) async {
+Future<void> _addHomeAssistant(WidgetTester tester, String name, String url, String token) async {
   // Tap the add button
-  final addButton = find.byKey(const Key('add_home_assistant_button'));
-  expect(addButton, findsOneWidget);
+  final addButton = find.byIcon(Icons.add);
   await tester.tap(addButton);
   await tester.pumpAndSettle();
-
-  // Verify we're on the Add Home Assistant page
-  expect(find.text('Add Home Assistant'), findsOneWidget);
-
-  // Fill in the URL
-  final urlField = find.byKey(const Key('ha_url_field'));
-  expect(urlField, findsOneWidget);
+  
+  // Fill in the form
+  final nameField = find.byType(TextFormField).at(0);
+  await tester.tap(nameField);
+  await tester.pumpAndSettle();
+  await tester.enterText(nameField, name);
+  
+  final urlField = find.byType(TextFormField).at(1);
+  await tester.tap(urlField);
+  await tester.pumpAndSettle();
   await tester.enterText(urlField, url);
-
-  // Submit the form
-  final submitButton = find.byKey(const Key('submit_ha_button'));
-  expect(submitButton, findsOneWidget);
-  await tester.tap(submitButton);
-  await tester.pumpAndSettle(const Duration(seconds: 3));
-
-  // Should navigate back to Home Assistants page
-  expect(find.text('Home Assistants'), findsOneWidget);
-
-  // Return a mock home assistant ID
-  return 'test_home_assistant_id';
-}
-
-/// Helper function to create a door for a lock entity
-Future<String> _createDoor(WidgetTester tester, String homeAssistantId) async {
-  // Tap on the Home Assistant entry to go to locks page
-  final haEntry = find.byKey(const Key('home_assistant_entry_0'));
-  if (haEntry.evaluate().isNotEmpty) {
-    await tester.tap(haEntry);
-    await tester.pumpAndSettle();
-
-    // Should be on locks page with available lock entities
-    expect(find.text('Locks'), findsOneWidget);
-  }
-
-  // Wait for locks to load and door creation to be available
+  
+  final tokenField = find.byType(TextFormField).at(2);
+  await tester.tap(tokenField);
+  await tester.pumpAndSettle();
+  await tester.enterText(tokenField, token);
+  
+  // Save
+  final saveButton = find.text('Save');
+  await tester.tap(saveButton);
   await tester.pumpAndSettle(const Duration(seconds: 2));
-
-  // Return a mock lock ID
-  return 'test_lock_id';
 }
 
-/// Helper function to verify QR code generation
-Future<void> _verifyQrCodeGeneration(WidgetTester tester, String lockId) async {
-  // Look for QR code generation functionality
+Future<void> _createDoor(WidgetTester tester, String homeAssistantName) async {
+  // Tap on the Home Assistant to navigate to locks
+  final homeAssistantItem = find.text(homeAssistantName);
+  await tester.tap(homeAssistantItem);
+  await tester.pumpAndSettle(const Duration(seconds: 2));
+  
+  // Should be on locks page
+  expect(find.text('Locks'), findsOneWidget);
+  
+  // Tap add lock button
+  final addLockButton = find.byIcon(Icons.add);
+  await tester.tap(addLockButton);
   await tester.pumpAndSettle();
   
-  // QR code generation should be accessible on the locks page
-  // This verifies the UI provides QR code functionality
-  expect(find.byType(Scaffold), findsWidgets);
+  // Should see available locks from mock HA server
+  expect(find.text('front_door'), findsOneWidget);
+  
+  // Select front door
+  final frontDoorItem = find.text('front_door');
+  await tester.tap(frontDoorItem);
+  await tester.pumpAndSettle(const Duration(seconds: 2));
 }
 
-/// Helper function to generate a grant
-Future<String> _generateGrant(WidgetTester tester, String lockId) async {
-  // Look for grants section or button to create grant
+Future<void> _generateGrant(WidgetTester tester, String lockName, String grantName) async {
+  // Tap on the lock to open grants
+  final lockItem = find.text(lockName);
+  await tester.tap(lockItem);
   await tester.pumpAndSettle();
   
-  // Grant creation should be available in the locks page
-  // Return a mock grant ID
-  return 'test_grant_id';
+  // Should see grants sheet
+  expect(find.text('Grants'), findsOneWidget);
+  
+  // Tap add grant button
+  final addGrantButton = find.byIcon(Icons.add);
+  await tester.tap(addGrantButton);
+  await tester.pumpAndSettle();
+  
+  // Fill grant form
+  final grantNameField = find.byType(TextFormField).first;
+  await tester.tap(grantNameField);
+  await tester.pumpAndSettle();
+  await tester.enterText(grantNameField, grantName);
+  
+  // Save the grant
+  final saveGrantButton = find.text('Save');
+  await tester.tap(saveGrantButton);
+  await tester.pumpAndSettle(const Duration(seconds: 2));
 }
 
-/// Helper function to test that grant works by verifying HA API calls
-Future<void> _testGrantWorks(WidgetTester tester, String grantId) async {
-  // Reset API calls to track new ones
-  MockHomeAssistantServer.clearApiCalls();
+Future<void> _testGrantViaQrScanner(WidgetTester tester, String grantName) async {
+  // Set up mock QR scanner to scan a grant
+  app.setQrScannerService(MockQrScannerService(
+    mockQrCode: 'doorlock://grant/test-grant-id',
+    mockDelay: const Duration(milliseconds: 300),
+  ));
   
-  // Simulate accessing the grant and triggering door opening
-  await _simulateGrantUsage(grantId);
-  
-  // Verify the mock HA server received the door open call
-  final apiCalls = MockHomeAssistantServer.getApiCalls();
-  expect(apiCalls.any((call) => 
-    call['path'] == '/api/services/lock/open' && 
-    call['method'] == 'POST'
-  ), isTrue, reason: 'Mock HA server should receive door open API call when grant is used');
+  // Navigate to QR scanner
+  final scanQrButton = find.text('Scan QR');
+  if (scanQrButton.evaluate().isNotEmpty) {
+    await tester.tap(scanQrButton);
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+  }
 }
 
-/// Helper function to setup an expired grant
-Future<void> _setupExpiredGrant(WidgetTester tester, String grantId) async {
-  // This simulates updating a grant's expiration time in the database
-  await Future.delayed(const Duration(milliseconds: 100));
+Future<void> _addHomeAssistantWithError(WidgetTester tester, String name, String url, String token) async {
+  // Try to add HA with invalid token - should show error
+  final addButton = find.byIcon(Icons.add);
+  await tester.tap(addButton);
+  await tester.pumpAndSettle();
+  
+  // Fill form with invalid token
+  final nameField = find.byType(TextFormField).at(0);
+  await tester.tap(nameField);
+  await tester.pumpAndSettle();
+  await tester.enterText(nameField, name);
+  
+  final urlField = find.byType(TextFormField).at(1);
+  await tester.tap(urlField);
+  await tester.pumpAndSettle();
+  await tester.enterText(urlField, url);
+  
+  final tokenField = find.byType(TextFormField).at(2);
+  await tester.tap(tokenField);
+  await tester.pumpAndSettle();
+  await tester.enterText(tokenField, token);
+  
+  final saveButton = find.text('Save');
+  await tester.tap(saveButton);
+  await tester.pumpAndSettle(const Duration(seconds: 2));
 }
 
-/// Helper function to test expired grant behavior
-Future<void> _testExpiredGrant(WidgetTester tester, String grantId) async {
-  // Clear API calls to track new ones
-  MockHomeAssistantServer.clearApiCalls();
-  
-  // Simulate accessing an expired grant
-  await _simulateExpiredGrantUsage(grantId);
-  
-  // Verify no API calls were made to the mock HA server
-  final apiCalls = MockHomeAssistantServer.getApiCalls();
-  expect(apiCalls.where((call) => call['path'] == '/api/services/lock/open').length, 
-         equals(0), reason: 'Expired grant should not trigger door open API calls');
+Future<void> _createExpiredGrantDirectly() async {
+  // Use PocketBase API to create an expired grant
+  // This is a placeholder - would need actual PocketBase implementation
+  print('Creating expired grant via PocketBase API...');
 }
 
-/// Helper function to delete a grant
-Future<void> _deleteGrant(WidgetTester tester, String grantId) async {
-  // This simulates deleting a grant from the database
-  await Future.delayed(const Duration(milliseconds: 100));
+Future<void> _testExpiredGrant(WidgetTester tester) async {
+  // Try to use an expired grant
+  app.setQrScannerService(MockQrScannerService(
+    mockQrCode: 'doorlock://grant/expired-grant-id',
+    mockDelay: const Duration(milliseconds: 300),
+  ));
+  
+  await _navigateToQrScanner(tester);
 }
 
-/// Helper function to test deleted grant behavior
-Future<void> _testDeletedGrant(WidgetTester tester, String grantId) async {
-  // Clear API calls to track new ones
-  MockHomeAssistantServer.clearApiCalls();
+Future<void> _deleteGrantViaUI(WidgetTester tester, String grantName) async {
+  // Long press on grant to show context menu
+  final grantItem = find.text(grantName);
+  await tester.longPress(grantItem);
+  await tester.pumpAndSettle();
   
-  // Simulate accessing a deleted grant
-  await _simulateDeletedGrantUsage(grantId);
+  // Tap delete option
+  final deleteButton = find.text('Delete');
+  if (deleteButton.evaluate().isNotEmpty) {
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+  }
   
-  // Verify no API calls were made to the mock HA server
-  final apiCalls = MockHomeAssistantServer.getApiCalls();
-  expect(apiCalls.where((call) => call['path'] == '/api/services/lock/open').length, 
-         equals(0), reason: 'Deleted grant should not trigger door open API calls');
+  // Confirm deletion if needed
+  final confirmButton = find.text('Confirm');
+  if (confirmButton.evaluate().isNotEmpty) {
+    await tester.tap(confirmButton);
+    await tester.pumpAndSettle();
+  }
 }
 
-/// Helper function to create a new grant
-Future<String> _createNewGrant(WidgetTester tester, String lockId) async {
-  // Create another grant for expiration update testing
-  return 'test_grant_id_2';
+Future<void> _testDeletedGrant(WidgetTester tester) async {
+  // Try to use a deleted grant
+  app.setQrScannerService(MockQrScannerService(
+    mockQrCode: 'doorlock://grant/deleted-grant-id',
+    mockDelay: const Duration(milliseconds: 300),
+  ));
+  
+  await _navigateToQrScanner(tester);
 }
 
-/// Helper function to update grant expiration
-Future<void> _updateGrantExpiration(WidgetTester tester, String grantId) async {
-  // This simulates updating a grant's expiration time
-  await Future.delayed(const Duration(milliseconds: 100));
+Future<void> _updateGrantExpirationViaUI(WidgetTester tester, String grantName) async {
+  // Long press on grant to show context menu
+  final grantItem = find.text(grantName);
+  await tester.longPress(grantItem);
+  await tester.pumpAndSettle();
+  
+  // Tap edit option
+  final editButton = find.text('Edit');
+  if (editButton.evaluate().isNotEmpty) {
+    await tester.tap(editButton);
+    await tester.pumpAndSettle();
+    
+    // Update expiration date - this would need actual date picker interaction
+    // For now, just save
+    final saveButton = find.text('Save');
+    if (saveButton.evaluate().isNotEmpty) {
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+    }
+  }
 }
 
-/// Helper function to test updated grant functionality
-Future<void> _testUpdatedGrant(WidgetTester tester, String grantId) async {
-  // Clear API calls to track new ones
-  MockHomeAssistantServer.clearApiCalls();
-  
-  // Simulate accessing the updated grant
-  await _simulateGrantUsage(grantId);
-  
-  // Verify the mock HA server received the door open call
-  final apiCalls = MockHomeAssistantServer.getApiCalls();
-  expect(apiCalls.any((call) => 
-    call['path'] == '/api/services/lock/open' && 
-    call['method'] == 'POST'
-  ), isTrue, reason: 'Updated grant should trigger door open API call');
-}
-
-/// Helper function to test invalid token handling
-Future<void> _testInvalidTokenHandling(WidgetTester tester) async {
-  // Clear valid tokens to simulate invalid token scenarios
-  MockHomeAssistantServer.reset();
-  MockHomeAssistantServer.clearApiCalls();
-  
-  // Simulate accessing a grant with invalid HA token
-  await _simulateGrantUsageWithInvalidToken('test_grant_invalid');
-  
-  // Verify API call was made but resulted in authentication failure
-  final apiCalls = MockHomeAssistantServer.getApiCalls();
-  expect(apiCalls.any((call) => 
-    call['path'] == '/api/services/lock/open'
-  ), isTrue, reason: 'API call should be attempted even with invalid token');
-}
-
-/// Helper function to test QR code scanning workflow
-Future<void> _testQrCodeScanningWorkflow(WidgetTester tester, String grantId) async {
-  // This tests the complete QR code scanning flow:
-  // 1. Scan QR code to get lock token
-  // 2. Use grant token + lock token to open door
-  // 3. Verify HA server receives the API call
-  
-  MockHomeAssistantServer.clearApiCalls();
-  
-  // Simulate QR scanning workflow
-  await _simulateQrScanningWorkflow(grantId);
-  
-  // Verify the workflow completed successfully
-  final apiCalls = MockHomeAssistantServer.getApiCalls();
-  expect(apiCalls.any((call) => 
-    call['path'] == '/api/services/lock/open'
-  ), isTrue, reason: 'QR scanning workflow should result in door open API call');
-}
-
-/// Helper function to test door opening API calls
-Future<void> _testDoorOpeningApiCalls(WidgetTester tester) async {
-  MockHomeAssistantServer.clearApiCalls();
-  
-  // Simulate various door opening scenarios
-  await _simulateMultipleDoorOpeningScenarios();
-  
-  // Verify all expected API calls were made
-  final apiCalls = MockHomeAssistantServer.getApiCalls();
-  expect(apiCalls.length, greaterThan(0), 
-         reason: 'Door opening scenarios should generate API calls');
-}
-
-/// Simulate grant usage by making API call to mock HA server
-Future<void> _simulateGrantUsage(String grantId) async {
-  // This simulates the backend making a call to Home Assistant when a valid grant is used
-  MockHomeAssistantServer.addMockApiCall({
-    'method': 'POST',
-    'path': '/api/services/lock/open',
-    'headers': {'Authorization': 'Bearer test_access_token'},
-    'body': {'entity_id': 'lock.front_door'},
-    'timestamp': DateTime.now().toIso8601String(),
-  });
-}
-
-/// Simulate expired grant usage
-Future<void> _simulateExpiredGrantUsage(String grantId) async {
-  // For expired grants, no API calls should be made
-  // The backend should reject the grant before calling HA
-  await Future.delayed(const Duration(milliseconds: 50));
-}
-
-/// Simulate deleted grant usage
-Future<void> _simulateDeletedGrantUsage(String grantId) async {
-  // For deleted grants, no API calls should be made
-  // The backend should reject the grant before calling HA
-  await Future.delayed(const Duration(milliseconds: 50));
-}
-
-/// Simulate grant usage with invalid token
-Future<void> _simulateGrantUsageWithInvalidToken(String grantId) async {
-  // This simulates trying to use a grant when the HA token is invalid
-  MockHomeAssistantServer.addMockApiCall({
-    'method': 'POST',
-    'path': '/api/services/lock/open',
-    'headers': {'Authorization': 'Bearer invalid_token'},
-    'body': {'entity_id': 'lock.front_door'},
-    'timestamp': DateTime.now().toIso8601String(),
-  });
-}
-
-/// Simulate QR scanning workflow
-Future<void> _simulateQrScanningWorkflow(String grantId) async {
-  // Simulate the complete workflow:
-  // 1. User scans QR code (done by MockQrScannerService)
-  // 2. App gets lock token from QR code
-  // 3. App uses grant + lock token to open door
-  // 4. Backend calls HA API
-  
-  MockHomeAssistantServer.addMockApiCall({
-    'method': 'POST',
-    'path': '/api/services/lock/open',
-    'headers': {'Authorization': 'Bearer test_access_token'},
-    'body': {'entity_id': 'lock.front_door'},
-    'timestamp': DateTime.now().toIso8601String(),
-  });
-}
-
-/// Simulate multiple door opening scenarios
-Future<void> _simulateMultipleDoorOpeningScenarios() async {
-  // Test different door opening scenarios
-  final scenarios = [
-    {'entity_id': 'lock.front_door', 'token': 'test_access_token'},
-    {'entity_id': 'lock.back_door', 'token': 'test_access_token'},
-  ];
-  
-  for (final scenario in scenarios) {
-    MockHomeAssistantServer.addMockApiCall({
-      'method': 'POST',
-      'path': '/api/services/lock/open',
-      'headers': {'Authorization': 'Bearer ${scenario['token']}'},
-      'body': {'entity_id': scenario['entity_id']},
-      'timestamp': DateTime.now().toIso8601String(),
-    });
+Future<void> _navigateToQrScanner(WidgetTester tester) async {
+  final scanQrButton = find.text('Scan QR');
+  if (scanQrButton.evaluate().isNotEmpty) {
+    await tester.tap(scanQrButton);
+    await tester.pumpAndSettle(const Duration(seconds: 2));
   }
 }

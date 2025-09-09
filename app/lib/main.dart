@@ -3,7 +3,6 @@ import 'package:pocketbase/pocketbase.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'add_home_assistant_page.dart';
-import 'env_config.dart';
 import 'grant_qr_scanner_page.dart';
 import 'home_assistants_page.dart';
 import 'open_door_page.dart';
@@ -16,8 +15,6 @@ import 'qr_scanner_service.dart';
 QrScannerService? _qrScannerService;
 
 void main() {
-  // Initialize PB with environment config
-  PB.initialize(EnvConfig.pocketBaseUrl);
   runApp(const MyApp());
 }
 

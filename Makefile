@@ -1,4 +1,4 @@
-.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean test-setup integration-test integration-test-ui integration-test-dialogs widget-test
+.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean test-setup integration-test
 
 help: ## Show this help message
 	@echo "Doorlock Development Commands:"
@@ -50,7 +50,8 @@ dev: dev-setup ## Quick start: setup and start development environment
 	@echo ""
 	@echo "💡 Next: run 'make dev-start' in a new terminal to start the frontend"
 
-# Real end-to-end integration tests
-integration-test: ## Run comprehensive end-to-end integration tests
-	./scripts/run_integration_tests.sh
+# Comprehensive integration tests 
+integration-test: ## Run comprehensive end-to-end integration tests with single command setup
+	@echo "🚀 Running integration tests with automated setup..."
+	@cd scripts && ./run_integration_tests.sh
 

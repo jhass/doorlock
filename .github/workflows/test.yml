@@ -29,7 +29,6 @@ jobs:
         run: |
           cd ${{ github.workspace }}/app
           flutter analyze
-        continue-on-error: true
 
       - name: Run widget tests
         run: |

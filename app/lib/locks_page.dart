@@ -3,37 +3,7 @@ import 'package:pocketbase/pocketbase.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'pb.dart';
 import 'grants_sheet.dart';
-
-/// Interface for platform-specific window operations
-abstract class WindowService {
-  void openHtmlContent(String encodedHtml);
-}
-
-/// Web-specific window service
-class WebWindowService implements WindowService {
-  @override
-  void openHtmlContent(String encodedHtml) {
-    // For testing, we'll just ignore this operation
-    // In a real web environment, this would use dart:js_util
-    // ignore: avoid_print
-    print('Would open HTML content in new window: ${encodedHtml.length} chars');
-  }
-}
-
-/// Test window service that does nothing
-class TestWindowService implements WindowService {
-  @override
-  void openHtmlContent(String encodedHtml) {
-    // Do nothing in tests
-  }
-}
-
-// Global window service for dependency injection
-WindowService _windowService = WebWindowService();
-
-void setWindowService(WindowService service) {
-  _windowService = service;
-}
+import 'window_service.dart';
 
 class LocksPage extends StatefulWidget {
   final String homeAssistantId;
@@ -276,5 +246,5 @@ class _LocksPageState extends State<LocksPage> {
 
 // Helper for opening HTML content in a new window (Flutter web, no dart:html)
 void windowOpenHtmlContent(String encodedHtml) {
-  _windowService.openHtmlContent(encodedHtml);
+  getWindowService().openWindow('data:text/html;base64,$encodedHtml');
 }

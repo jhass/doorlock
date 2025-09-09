@@ -8,19 +8,9 @@ class WebEnvironmentConfig implements EnvironmentConfig {
   @override
   String get pocketBaseUrl {
     // This would use dart:js_interop in a real web environment
-    // For testing, we'll use a fallback
+    // For now, we'll use a fallback
     return const String.fromEnvironment('POCKETBASE_URL', defaultValue: 'http://127.0.0.1:8080');
   }
-}
-
-/// Test environment configuration
-class TestEnvironmentConfig implements EnvironmentConfig {
-  final String _url;
-  
-  TestEnvironmentConfig(this._url);
-  
-  @override
-  String get pocketBaseUrl => _url;
 }
 
 /// Default environment configuration
