@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:doorlock/main.dart' as app;
 import 'package:doorlock/env_config.dart';
-import 'package:doorlock/qr_scanner_service.dart';
 import 'package:doorlock/window_service.dart';
 
 import 'mock_home_assistant_server.dart';
@@ -168,7 +167,7 @@ void main() {
       
       // Should have made API call
       final apiCalls = MockHomeAssistantServer.getApiCalls();
-      expect(apiCalls.any((call) => call.contains('lock/open')), true);
+      expect(apiCalls.any((call) => call['path']?.contains('lock/open') == true), true);
       
       print('✅ Grant expiration update test passed');
     });
@@ -220,7 +219,7 @@ void main() {
       
       // Should have made API call
       final apiCalls = MockHomeAssistantServer.getApiCalls();
-      expect(apiCalls.any((call) => call.contains('lock/open')), true);
+      expect(apiCalls.any((call) => call['path']?.contains('lock/open') == true), true);
       
       print('✅ QR code scanning workflow test passed');
     });
