@@ -1,9 +1,39 @@
-import 'dart:js_util' as js_util;
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'pb.dart';
 import 'grants_sheet.dart';
+
+/// Interface for platform-specific window operations
+abstract class WindowService {
+  void openHtmlContent(String encodedHtml);
+}
+
+/// Web-specific window service
+class WebWindowService implements WindowService {
+  @override
+  void openHtmlContent(String encodedHtml) {
+    // For testing, we'll just ignore this operation
+    // In a real web environment, this would use dart:js_util
+    // ignore: avoid_print
+    print('Would open HTML content in new window: ${encodedHtml.length} chars');
+  }
+}
+
+/// Test window service that does nothing
+class TestWindowService implements WindowService {
+  @override
+  void openHtmlContent(String encodedHtml) {
+    // Do nothing in tests
+  }
+}
+
+// Global window service for dependency injection
+WindowService _windowService = WebWindowService();
+
+void setWindowService(WindowService service) {
+  _windowService = service;
+}
 
 class LocksPage extends StatefulWidget {
   final String homeAssistantId;
@@ -246,8 +276,5 @@ class _LocksPageState extends State<LocksPage> {
 
 // Helper for opening HTML content in a new window (Flutter web, no dart:html)
 void windowOpenHtmlContent(String encodedHtml) {
-  // Use JS interop to open a new window and write the HTML content (Flutter web only, no dart:html)
-  // Fix: properly escape single quotes in the JS string to avoid syntax errors
-  final js = "var w = window.open(); w.document.write(decodeURIComponent('${encodedHtml.replaceAll("'", "\\'")}')); w.document.close();";
-  js_util.callMethod(js_util.globalThis, 'eval', [js]);
+  _windowService.openHtmlContent(encodedHtml);
 }

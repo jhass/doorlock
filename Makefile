@@ -50,11 +50,7 @@ dev: dev-setup ## Quick start: setup and start development environment
 	@echo ""
 	@echo "💡 Next: run 'make dev-start' in a new terminal to start the frontend"
 
-# Working integration tests using widget testing
-widget-test: ## Run working widget integration tests (RECOMMENDED)
+# Real end-to-end integration tests
+integration-test: ## Run comprehensive end-to-end integration tests
 	./scripts/run_integration_tests.sh
-
-# Set up integration test environment with real PocketBase and seeded data
-setup-integration-env: ## Set up PocketBase with test data for manual integration testing
-	./scripts/setup_integration_environment.sh
 

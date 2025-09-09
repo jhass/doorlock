@@ -20,6 +20,7 @@ class HomeAssistantsPage extends StatelessWidget {
             tooltip: 'Sign Out',
           ),
           IconButton(
+            key: const Key('add_home_assistant_button'),
             icon: const Icon(Icons.add),
             onPressed: onAdd,
             tooltip: 'Add Home Assistant',
@@ -31,6 +32,7 @@ class HomeAssistantsPage extends StatelessWidget {
         itemBuilder: (context, index) {
           final item = assistants[index];
           return ListTile(
+            key: Key('home_assistant_entry_$index'),
             title: Text(item['url']),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(

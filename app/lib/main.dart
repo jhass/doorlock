@@ -10,11 +10,20 @@ import 'open_door_page.dart';
 import 'pb.dart';
 import 'session_storage.dart';
 import 'sign_in_page.dart';
+import 'qr_scanner_service.dart';
+
+// Global QR scanner service for dependency injection
+QrScannerService? _qrScannerService;
 
 void main() {
   // Initialize PB with environment config
   PB.initialize(EnvConfig.pocketBaseUrl);
   runApp(const MyApp());
+}
+
+/// Set QR scanner service for testing
+void setQrScannerService(QrScannerService? service) {
+  _qrScannerService = service;
 }
 
 class MyApp extends StatelessWidget {
@@ -63,6 +72,7 @@ class _GrantFlowState extends State<GrantFlow> {
         onScanned: (lockToken) {
           setState(() => _lockToken = lockToken);
         },
+        qrScannerService: _qrScannerService,
       );
     }
     return OpenDoorPage(grantToken: widget.grantToken, lockToken: _lockToken!);
