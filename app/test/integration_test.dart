@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:doorlock/main.dart' as app;
 import 'package:doorlock/env_config.dart';
 import 'package:doorlock/window_service.dart';
@@ -67,12 +68,12 @@ void main() {
       // Step 2: Add Home Assistant
       print('Step 2: Adding Home Assistant...');
       await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
-      expect(find.text('Test Home'), findsOneWidget);
+      expect(find.text('http://localhost:8123'), findsOneWidget);
       print('✅ Step 2: Successfully added Home Assistant');
 
       // Step 3: Create Door
       print('Step 3: Creating door...');
-      await _createDoor(tester, 'Test Home');
+      await _createDoor(tester, 'http://localhost:8123');
       expect(find.text('lock.front_door'), findsOneWidget);
       print('✅ Step 3: Successfully created door');
 
@@ -103,11 +104,11 @@ void main() {
       // Set up basic environment
       await _signIn(tester, 'testuser', 'testpass123');
       await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
-      await _createDoor(tester, 'Test Home');
+      await _createDoor(tester, 'http://localhost:8123');
       
-      // Create a grant with past expiration (using PocketBase API directly)
-      print('Creating expired grant...');
-      await _createExpiredGrantDirectly();
+      // Create a grant and then make it expired via UI
+      print('Creating grant that will expire...');
+      await _createExpiredGrantViaUI(tester);
       
       // Try to use the expired grant via QR scanner
       await _testExpiredGrant(tester);
@@ -132,7 +133,7 @@ void main() {
       // Set up basic environment
       await _signIn(tester, 'testuser', 'testpass123');
       await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
-      await _createDoor(tester, 'Test Home');
+      await _createDoor(tester, 'http://localhost:8123');
       await _generateGrant(tester, 'lock.front_door', 'Grant to Delete');
       
       // Delete the grant via UI
@@ -156,7 +157,7 @@ void main() {
       // Set up basic environment
       await _signIn(tester, 'testuser', 'testpass123');
       await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
-      await _createDoor(tester, 'Test Home');
+      await _createDoor(tester, 'http://localhost:8123');
       await _generateGrant(tester, 'lock.front_door', 'Updatable Grant');
       
       // Update grant expiration via UI
@@ -190,6 +191,38 @@ void main() {
       print('✅ Invalid token handling test passed');
     });
 
+    testWidgets('QR Code Rendering Test: Verify QR codes are actually displayed', (WidgetTester tester) async {
+      print('📱 Testing QR code rendering...');
+      
+      await tester.pumpWidget(app.MyApp());
+      await tester.pumpAndSettle();
+      
+      // Set up environment and create grant
+      await _signIn(tester, 'testuser', 'testpass123');
+      await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
+      await _createDoor(tester, 'http://localhost:8123');
+      await _generateGrant(tester, 'lock.front_door', 'QR Test Grant');
+      
+      // Tap on the lock to view grants and QR codes
+      final lockItem = find.text('lock.front_door');
+      await tester.tap(lockItem);
+      await tester.pumpAndSettle();
+      
+      // Should see grants sheet with QR code
+      expect(find.text('Grants'), findsOneWidget);
+      expect(find.text('QR Test Grant'), findsOneWidget);
+      
+      // Look for QR code widget - should find QrImageView
+      expect(find.byType(QrImageView), findsOneWidget);
+      
+      // Verify QR code is present (actual data verification would require widget inspection)
+      // The presence of QrImageView indicates QR code is being rendered
+      final qrWidgetFinder = find.byType(QrImageView);
+      expect(qrWidgetFinder, findsOneWidget);
+      
+      print('✅ QR code rendering test passed');
+    });
+
     testWidgets('QR Code Scanning Workflow Test: Complete scan-to-open flow', (WidgetTester tester) async {
       print('📱 Testing QR code scanning workflow...');
       
@@ -205,7 +238,7 @@ void main() {
       // Set up basic environment and create grant
       await _signIn(tester, 'testuser', 'testpass123');
       await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
-      await _createDoor(tester, 'Test Home');
+      await _createDoor(tester, 'http://localhost:8123');
       await _generateGrant(tester, 'lock.front_door', 'QR Test Grant');
       
       // Test QR scanning workflow
@@ -236,7 +269,7 @@ void main() {
       // Complete user journey that should make API calls
       await _signIn(tester, 'testuser', 'testpass123');
       await _addHomeAssistant(tester, 'Test Home', 'http://localhost:8123', 'test_access_token');
-      await _createDoor(tester, 'Test Home');
+      await _createDoor(tester, 'http://localhost:8123');
       await _generateGrant(tester, 'lock.front_door', 'API Test Grant');
       await _testGrantViaQrScanner(tester, 'API Test Grant');
       
@@ -281,9 +314,12 @@ Future<void> _signIn(WidgetTester tester, String username, String password) asyn
 
 Future<void> _addHomeAssistant(WidgetTester tester, String name, String url, String token) async {
   // Tap the add button
-  final addButton = find.byIcon(Icons.add);
+  final addButton = find.byKey(const Key('add_home_assistant_button'));
   await tester.tap(addButton);
   await tester.pumpAndSettle();
+  
+  // Should now be on add home assistant page
+  expect(find.text('Add Home Assistant'), findsOneWidget);
   
   // Fill in the form
   final nameField = find.byType(TextFormField).at(0);
@@ -305,44 +341,61 @@ Future<void> _addHomeAssistant(WidgetTester tester, String name, String url, Str
   final saveButton = find.text('Save');
   await tester.tap(saveButton);
   await tester.pumpAndSettle(const Duration(seconds: 2));
+  
+  // Verify we're back on home assistants page and the new entry exists
+  expect(find.text('Home Assistants'), findsOneWidget);
+  expect(find.text(url), findsOneWidget);
 }
 
-Future<void> _createDoor(WidgetTester tester, String homeAssistantName) async {
-  // Tap on the Home Assistant to navigate to locks
-  final homeAssistantItem = find.text(homeAssistantName);
+Future<void> _createDoor(WidgetTester tester, String homeAssistantUrl) async {
+  // Tap on the Home Assistant URL to navigate to locks page
+  final homeAssistantItem = find.text(homeAssistantUrl);
   await tester.tap(homeAssistantItem);
   await tester.pumpAndSettle(const Duration(seconds: 2));
   
   // Should be on locks page
   expect(find.text('Locks'), findsOneWidget);
   
+  // Should not have any locks initially
+  expect(find.text('No locks'), findsWidgets);
+  
   // Tap add lock button
   final addLockButton = find.byIcon(Icons.add);
   await tester.tap(addLockButton);
-  await tester.pumpAndSettle();
+  await tester.pumpAndSettle(const Duration(seconds: 2));
   
   // Should see available locks from mock HA server
-  expect(find.text('front_door'), findsOneWidget);
+  expect(find.text('lock.front_door'), findsOneWidget);
   
-  // Select front door
-  final frontDoorItem = find.text('front_door');
+  // Select front door lock
+  final frontDoorItem = find.text('lock.front_door');
   await tester.tap(frontDoorItem);
   await tester.pumpAndSettle(const Duration(seconds: 2));
+  
+  // Verify lock was added - should now see it in the locks list
+  expect(find.text('lock.front_door'), findsOneWidget);
+  expect(find.text('No locks'), findsNothing);
 }
 
-Future<void> _generateGrant(WidgetTester tester, String lockName, String grantName) async {
-  // Tap on the lock to open grants
-  final lockItem = find.text(lockName);
+Future<void> _generateGrant(WidgetTester tester, String lockEntityId, String grantName) async {
+  // Tap on the lock to open grants sheet
+  final lockItem = find.text(lockEntityId);
   await tester.tap(lockItem);
   await tester.pumpAndSettle();
   
   // Should see grants sheet
   expect(find.text('Grants'), findsOneWidget);
   
+  // Should see no grants initially
+  expect(find.text('No grants'), findsWidgets);
+  
   // Tap add grant button
   final addGrantButton = find.byIcon(Icons.add);
   await tester.tap(addGrantButton);
   await tester.pumpAndSettle();
+  
+  // Should now be on add grant page/dialog
+  expect(find.text('Add Grant'), findsOneWidget);
   
   // Fill grant form
   final grantNameField = find.byType(TextFormField).first;
@@ -350,25 +403,49 @@ Future<void> _generateGrant(WidgetTester tester, String lockName, String grantNa
   await tester.pumpAndSettle();
   await tester.enterText(grantNameField, grantName);
   
+  // Set expiration time (if there's a date field)
+  // For now, just use default expiration
+  
   // Save the grant
   final saveGrantButton = find.text('Save');
   await tester.tap(saveGrantButton);
   await tester.pumpAndSettle(const Duration(seconds: 2));
+  
+  // Should be back on grants sheet and see the new grant
+  expect(find.text(grantName), findsOneWidget);
+  expect(find.text('No grants'), findsNothing);
 }
 
 Future<void> _testGrantViaQrScanner(WidgetTester tester, String grantName) async {
-  // Set up mock QR scanner to scan a grant
+  // Navigate back to main page to access QR scanner
+  final backButton = find.byIcon(Icons.arrow_back);
+  if (backButton.evaluate().isNotEmpty) {
+    await tester.tap(backButton);
+    await tester.pumpAndSettle();
+  }
+  
+  // Look for QR scanning functionality - might be in app bar or floating action button
+  final scanButton = find.byIcon(Icons.qr_code_scanner);
+  if (scanButton.evaluate().isNotEmpty) {
+    await tester.tap(scanButton);
+    await tester.pumpAndSettle();
+  } else {
+    // Try alternative scan button locations
+    final altScanButton = find.text('Scan QR');
+    if (altScanButton.evaluate().isNotEmpty) {
+      await tester.tap(altScanButton);
+      await tester.pumpAndSettle();
+    }
+  }
+  
+  // Set up mock QR scanner to scan a valid grant
   app.setQrScannerService(MockQrScannerService(
     mockQrCode: 'doorlock://grant/test-grant-id',
-    mockDelay: const Duration(milliseconds: 300),
+    mockDelay: const Duration(milliseconds: 500),
   ));
   
-  // Navigate to QR scanner
-  final scanQrButton = find.text('Scan QR');
-  if (scanQrButton.evaluate().isNotEmpty) {
-    await tester.tap(scanQrButton);
-    await tester.pumpAndSettle(const Duration(seconds: 2));
-  }
+  // Wait for QR scan to complete and door opening to trigger
+  await tester.pumpAndSettle(const Duration(seconds: 3));
 }
 
 Future<void> _addHomeAssistantWithError(WidgetTester tester, String name, String url, String token) async {
@@ -398,56 +475,117 @@ Future<void> _addHomeAssistantWithError(WidgetTester tester, String name, String
   await tester.pumpAndSettle(const Duration(seconds: 2));
 }
 
-Future<void> _createExpiredGrantDirectly() async {
-  // Use PocketBase API to create an expired grant
-  // This is a placeholder - would need actual PocketBase implementation
-  print('Creating expired grant via PocketBase API...');
+Future<void> _createExpiredGrantViaUI(WidgetTester tester) async {
+  // Create a grant with past expiration date using the UI
+  // Navigate to grants for the lock
+  final lockItem = find.text('lock.front_door');
+  await tester.tap(lockItem);
+  await tester.pumpAndSettle();
+  
+  // Add grant with expired date
+  final addGrantButton = find.byIcon(Icons.add);
+  await tester.tap(addGrantButton);
+  await tester.pumpAndSettle();
+  
+  // Fill grant form with expired grant name
+  final grantNameField = find.byType(TextFormField).first;
+  await tester.tap(grantNameField);
+  await tester.pumpAndSettle();
+  await tester.enterText(grantNameField, 'Expired Grant');
+  
+  // Set expiration to past date (if date picker is available)
+  // For now, create grant and then modify via PocketBase
+  final saveGrantButton = find.text('Save');
+  await tester.tap(saveGrantButton);
+  await tester.pumpAndSettle(const Duration(seconds: 2));
+  
+  // TODO: Use PocketBase client to set grant expiration to past date
+  // This would require accessing the PB instance and updating the grant record
 }
 
 Future<void> _testExpiredGrant(WidgetTester tester) async {
-  // Try to use an expired grant
+  // Try to use an expired grant via QR scanner
   app.setQrScannerService(MockQrScannerService(
     mockQrCode: 'doorlock://grant/expired-grant-id',
-    mockDelay: const Duration(milliseconds: 300),
+    mockDelay: const Duration(milliseconds: 500),
   ));
   
+  // Navigate to QR scanner and try to scan expired grant
   await _navigateToQrScanner(tester);
+  
+  // Wait for scan attempt
+  await tester.pumpAndSettle(const Duration(seconds: 2));
+  
+  // Should see error message about expired grant
+  expect(find.textContaining('expired'), findsWidgets);
 }
 
 Future<void> _deleteGrantViaUI(WidgetTester tester, String grantName) async {
-  // Long press on grant to show context menu
+  // Navigate to grants list for the lock
+  final lockItem = find.text('lock.front_door');
+  await tester.tap(lockItem);
+  await tester.pumpAndSettle();
+  
+  // Find the grant to delete
   final grantItem = find.text(grantName);
+  expect(grantItem, findsOneWidget);
+  
+  // Long press on grant to show context menu
   await tester.longPress(grantItem);
   await tester.pumpAndSettle();
   
-  // Tap delete option
+  // Look for delete option
   final deleteButton = find.text('Delete');
   if (deleteButton.evaluate().isNotEmpty) {
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
+    
+    // Confirm deletion if confirmation dialog appears
+    final confirmButton = find.text('Confirm');
+    if (confirmButton.evaluate().isNotEmpty) {
+      await tester.tap(confirmButton);
+      await tester.pumpAndSettle();
+    }
+  } else {
+    // Try alternative delete methods - maybe a delete icon
+    final deleteIcon = find.byIcon(Icons.delete);
+    if (deleteIcon.evaluate().isNotEmpty) {
+      await tester.tap(deleteIcon);
+      await tester.pumpAndSettle();
+    }
   }
   
-  // Confirm deletion if needed
-  final confirmButton = find.text('Confirm');
-  if (confirmButton.evaluate().isNotEmpty) {
-    await tester.tap(confirmButton);
-    await tester.pumpAndSettle();
-  }
+  // Verify grant no longer appears in list
+  expect(find.text(grantName), findsNothing);
 }
 
 Future<void> _testDeletedGrant(WidgetTester tester) async {
-  // Try to use a deleted grant
+  // Try to use a deleted grant via QR scanner
   app.setQrScannerService(MockQrScannerService(
     mockQrCode: 'doorlock://grant/deleted-grant-id',
-    mockDelay: const Duration(milliseconds: 300),
+    mockDelay: const Duration(milliseconds: 500),
   ));
   
   await _navigateToQrScanner(tester);
+  
+  // Wait for scan attempt
+  await tester.pumpAndSettle(const Duration(seconds: 2));
+  
+  // Should see error message about invalid/not found grant
+  expect(find.textContaining('not found'), findsWidgets);
 }
 
 Future<void> _updateGrantExpirationViaUI(WidgetTester tester, String grantName) async {
-  // Long press on grant to show context menu
+  // Navigate to grants list
+  final lockItem = find.text('lock.front_door');
+  await tester.tap(lockItem);
+  await tester.pumpAndSettle();
+  
+  // Find the grant to edit
   final grantItem = find.text(grantName);
+  expect(grantItem, findsOneWidget);
+  
+  // Long press on grant to show context menu
   await tester.longPress(grantItem);
   await tester.pumpAndSettle();
   
@@ -457,20 +595,66 @@ Future<void> _updateGrantExpirationViaUI(WidgetTester tester, String grantName) 
     await tester.tap(editButton);
     await tester.pumpAndSettle();
     
-    // Update expiration date - this would need actual date picker interaction
-    // For now, just save
+    // Should now be on edit grant page
+    expect(find.text('Edit Grant'), findsOneWidget);
+    
+    // Update expiration date - for now just save (date picker interaction would be complex)
+    // In a real implementation, we'd interact with date picker widget
     final saveButton = find.text('Save');
     if (saveButton.evaluate().isNotEmpty) {
       await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+    }
+    
+    // Verify we're back to grants list
+    expect(find.text(grantName), findsOneWidget);
+  } else {
+    // Try alternative edit methods - maybe an edit icon
+    final editIcon = find.byIcon(Icons.edit);
+    if (editIcon.evaluate().isNotEmpty) {
+      await tester.tap(editIcon);
       await tester.pumpAndSettle();
     }
   }
 }
 
 Future<void> _navigateToQrScanner(WidgetTester tester) async {
-  final scanQrButton = find.text('Scan QR');
+  // Look for QR scanner access - could be app bar icon, FAB, or menu item
+  final scanQrButton = find.byIcon(Icons.qr_code_scanner);
   if (scanQrButton.evaluate().isNotEmpty) {
     await tester.tap(scanQrButton);
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+    return;
+  }
+  
+  // Try text-based scan button
+  final scanTextButton = find.text('Scan QR');
+  if (scanTextButton.evaluate().isNotEmpty) {
+    await tester.tap(scanTextButton);
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+    return;
+  }
+  
+  // Try floating action button
+  final fab = find.byType(FloatingActionButton);
+  if (fab.evaluate().isNotEmpty) {
+    await tester.tap(fab);
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+    return;
+  }
+  
+  // If no direct scanner access, navigate through app structure
+  // Go back to main home assistants page first
+  final backButton = find.byIcon(Icons.arrow_back);
+  while (backButton.evaluate().isNotEmpty) {
+    await tester.tap(backButton);
+    await tester.pumpAndSettle();
+  }
+  
+  // Look for scanner access from main page
+  final mainScanButton = find.byIcon(Icons.qr_code_scanner);
+  if (mainScanButton.evaluate().isNotEmpty) {
+    await tester.tap(mainScanButton);
     await tester.pumpAndSettle(const Duration(seconds: 2));
   }
 }
