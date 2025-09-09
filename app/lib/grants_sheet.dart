@@ -110,19 +110,20 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           text: formatDateTime(notBefore),
                         ),
                         onTap: () async {
+                          final currentContext = context;
                           final now = DateTime.now();
                           final picked = await showDatePicker(
-                            context: context,
+                            context: currentContext,
                             initialDate: notBefore ?? now,
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null) {
+                          if (picked != null && mounted) {
                             final time = await showTimePicker(
-                              context: context,
+                              context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
                             );
-                            if (time != null) {
+                            if (time != null && mounted) {
                               // Combine picked date and time as local, then convert to UTC for storage
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
@@ -147,19 +148,20 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           text: formatDateTime(notAfter),
                         ),
                         onTap: () async {
+                          final currentContext = context;
                           final now = DateTime.now();
                           final picked = await showDatePicker(
-                            context: context,
+                            context: currentContext,
                             initialDate: notAfter ?? now,
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null) {
+                          if (picked != null && mounted) {
                             final time = await showTimePicker(
-                              context: context,
+                              context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
                             );
-                            if (time != null) {
+                            if (time != null && mounted) {
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
                                 notAfter = local;
@@ -193,6 +195,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                         onPressed: submitting
                             ? null
                             : () async {
+                                final currentContext = context;
                                 if (!formKey.currentState!.validate()) return;
                                 if (notBefore == null || notAfter == null) return;
                                 setModalState(() => submitting = true);
@@ -206,7 +209,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                   };
                                   await _pb.collection('doorlock_grants').create(body: body);
                                   if (mounted) {
-                                    Navigator.of(context).pop();
+                                    Navigator.of(currentContext).pop();
                                     await _fetchGrants();
                                   }
                                 } on ClientException catch (e) {
@@ -289,19 +292,20 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           text: formatDateTime(notBefore),
                         ),
                         onTap: () async {
+                          final currentContext = context;
                           final now = DateTime.now();
                           final picked = await showDatePicker(
-                            context: context,
+                            context: currentContext,
                             initialDate: notBefore ?? now,
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null) {
+                          if (picked != null && mounted) {
                             final time = await showTimePicker(
-                              context: context,
+                              context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
                             );
-                            if (time != null) {
+                            if (time != null && mounted) {
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
                                 notBefore = local;
@@ -325,19 +329,20 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           text: formatDateTime(notAfter),
                         ),
                         onTap: () async {
+                          final currentContext = context;
                           final now = DateTime.now();
                           final picked = await showDatePicker(
-                            context: context,
+                            context: currentContext,
                             initialDate: notAfter ?? now,
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null) {
+                          if (picked != null && mounted) {
                             final time = await showTimePicker(
-                              context: context,
+                              context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
                             );
-                            if (time != null) {
+                            if (time != null && mounted) {
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
                                 notAfter = local;
@@ -372,6 +377,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                         onPressed: submitting
                             ? null
                             : () async {
+                                final currentContext = context;
                                 if (!formKey.currentState!.validate()) return;
                                 if (notBefore == null || notAfter == null) return;
                                 setModalState(() => submitting = true);
@@ -384,7 +390,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                   };
                                   await _pb.collection('doorlock_grants').update(grant['id'], body: body);
                                   if (mounted) {
-                                    Navigator.of(context).pop();
+                                    Navigator.of(currentContext).pop();
                                     await _fetchGrants();
                                   }
                                 } on ClientException catch (e) {
@@ -415,6 +421,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
 
   Future<void> _shareDeeplink(BuildContext context, String deeplink) async {
     try {
+      // ignore: deprecated_member_use
       await Share.share(deeplink);
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: deeplink));

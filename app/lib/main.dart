@@ -236,9 +236,12 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
     return HomeAssistantsPage(
       assistants: _assistants,
       onSignOut: () async {
+        final currentContext = context;
         await SessionStorage.clearSession();
         PB.instance.authStore.clear();
-        Navigator.of(context).pushReplacementNamed('/');
+        if (currentContext.mounted) {
+          Navigator.of(currentContext).pushReplacementNamed('/');
+        }
       },
       onAdd: _showAddPage,
     );

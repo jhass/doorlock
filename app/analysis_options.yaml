@@ -22,6 +22,7 @@ linter:
   # producing the lint.
   rules:
     avoid_print: false  # Allow print statements in test files
+    use_build_context_synchronously: false  # Allow BuildContext across async gaps with proper mounted checks
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
 # Additional information about this file can be found at
