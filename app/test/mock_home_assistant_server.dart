@@ -51,6 +51,11 @@ class MockHomeAssistantServer {
   /// Clear API call history
   static void clearApiCalls() => _apiCalls.clear();
 
+  /// Add a mock API call for testing (simulates backend calls)
+  static void addMockApiCall(Map<String, dynamic> apiCall) {
+    _apiCalls.add(apiCall);
+  }
+
   /// Handle incoming HTTP requests
   static Future<void> _handleRequest(HttpRequest request) async {
     // Add CORS headers for browser requests
