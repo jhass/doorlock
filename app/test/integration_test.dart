@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:doorlock/env_config.dart';
@@ -90,8 +89,7 @@ void main() {
       MockHomeAssistantServer.addValidToken('test_token', ['lock.door']);
       MockHomeAssistantServer.removeToken('test_token');
       
-      // Test API call tracking
-      final initialCalls = MockHomeAssistantServer.getApiCalls().length;
+      // Test API call tracking - clear any existing calls
       MockHomeAssistantServer.clearApiCalls();
       expect(MockHomeAssistantServer.getApiCalls().length, equals(0));
       

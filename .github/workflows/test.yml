@@ -20,17 +20,7 @@ jobs:
           flutter-version: '3.35.0'
           channel: 'stable'
 
-      - name: Install Flutter dependencies
-        run: |
-          cd ${{ github.workspace }}/app
-          flutter pub get
-
-      - name: Run static analysis
-        run: |
-          cd ${{ github.workspace }}/app
-          flutter analyze
-
-      - name: Run integration tests
+      - name: Run CI tests
         run: |
           cd ${{ github.workspace }}
-          ./scripts/run_integration_tests.sh
+          ./scripts/run_ci_tests.sh

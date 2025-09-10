@@ -1,4 +1,4 @@
-.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean test-setup integration-test
+.PHONY: help dev-setup dev-start dev-stop dev-restart dev-logs dev-clean test-setup integration-test ci-test
 
 help: ## Show this help message
 	@echo "Doorlock Development Commands:"
@@ -35,7 +35,7 @@ test-setup: ## Test if development environment is working
 	@echo "3. Checking ports..."
 	@curl -s http://localhost:8080 > /dev/null && echo "  ✅ Port 8080 is accessible" || echo "  ❌ Port 8080 is not accessible"
 	@echo "4. Checking Flutter..."
-	@command -v flutter > /dev/null && echo "  ✅ Flutter is available" || echo "  ⚠️  Flutter not found (will use Docker)"
+	@command -v flutter > /dev/null && echo "  ✅ Flutter is available" || echo "  ❌ Flutter not found (will use Docker)"
 	@echo ""
 	@echo "🎯 Setup complete! Next steps:"
 	@echo "   1. Access PocketBase admin: http://localhost:8080/_/"
@@ -54,4 +54,9 @@ dev: dev-setup ## Quick start: setup and start development environment
 integration-test: ## Run comprehensive end-to-end integration tests with single command setup
 	@echo "🚀 Running integration tests with automated setup..."
 	@cd scripts && ./run_integration_tests.sh
+
+# CI-friendly tests (no Docker required)
+ci-test: ## Run CI-friendly tests for continuous integration
+	@echo "🚀 Running CI tests..."
+	@./scripts/run_ci_tests.sh
 

@@ -124,7 +124,7 @@ For development, this points to the local PocketBase instance.
 
 ## Testing
 
-Run the integration test suite with `make integration-test`.
+Run the integration test suite with `make integration-test`. For CI environments, use `make ci-test`.
 
 ## Debugging
 
