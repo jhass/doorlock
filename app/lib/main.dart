@@ -9,9 +9,18 @@ import 'open_door_page.dart';
 import 'pb.dart';
 import 'session_storage.dart';
 import 'sign_in_page.dart';
+import 'qr_scanner_service.dart';
+
+// Global QR scanner service for dependency injection
+QrScannerService? _qrScannerService;
 
 void main() {
   runApp(const MyApp());
+}
+
+/// Set QR scanner service for testing
+void setQrScannerService(QrScannerService? service) {
+  _qrScannerService = service;
 }
 
 class MyApp extends StatelessWidget {
@@ -27,7 +36,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),
-        home: _GrantFlow(grantToken: grantToken),
+        home: GrantFlow(grantToken: grantToken),
       );
     }
 
@@ -43,14 +52,14 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class _GrantFlow extends StatefulWidget {
+class GrantFlow extends StatefulWidget {
   final String grantToken;
-  const _GrantFlow({required this.grantToken});
+  const GrantFlow({super.key, required this.grantToken});
   @override
-  State<_GrantFlow> createState() => _GrantFlowState();
+  State<GrantFlow> createState() => _GrantFlowState();
 }
 
-class _GrantFlowState extends State<_GrantFlow> {
+class _GrantFlowState extends State<GrantFlow> {
   String? _lockToken;
 
   @override
@@ -60,6 +69,7 @@ class _GrantFlowState extends State<_GrantFlow> {
         onScanned: (lockToken) {
           setState(() => _lockToken = lockToken);
         },
+        qrScannerService: _qrScannerService,
       );
     }
     return OpenDoorPage(grantToken: widget.grantToken, lockToken: _lockToken!);
@@ -226,9 +236,12 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
     return HomeAssistantsPage(
       assistants: _assistants,
       onSignOut: () async {
+        final currentContext = context;
         await SessionStorage.clearSession();
         PB.instance.authStore.clear();
-        Navigator.of(context).pushReplacementNamed('/');
+        if (currentContext.mounted) {
+          Navigator.of(currentContext).pushReplacementNamed('/');
+        }
       },
       onAdd: _showAddPage,
     );

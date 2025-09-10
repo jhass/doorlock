@@ -122,6 +122,10 @@ For development, this points to the local PocketBase instance.
 - `./scripts/start-frontend.sh` - Start Flutter frontend (tries local first, then Docker)
 - `./scripts/restart-backend.sh` - Restart backend after changes
 
+## Testing
+
+Run the integration test suite with `make integration-test`. For CI environments, use `make ci-test`.
+
 ## Debugging
 
 ### PocketBase Issues

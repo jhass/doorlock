@@ -1,9 +1,9 @@
-import 'dart:js_util' as js_util;
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'pb.dart';
 import 'grants_sheet.dart';
+import 'window_service.dart';
 
 class LocksPage extends StatefulWidget {
   final String homeAssistantId;
@@ -246,8 +246,5 @@ class _LocksPageState extends State<LocksPage> {
 
 // Helper for opening HTML content in a new window (Flutter web, no dart:html)
 void windowOpenHtmlContent(String encodedHtml) {
-  // Use JS interop to open a new window and write the HTML content (Flutter web only, no dart:html)
-  // Fix: properly escape single quotes in the JS string to avoid syntax errors
-  final js = "var w = window.open(); w.document.write(decodeURIComponent('${encodedHtml.replaceAll("'", "\\'")}')); w.document.close();";
-  js_util.callMethod(js_util.globalThis, 'eval', [js]);
+  getWindowService().openWindow('data:text/html;base64,$encodedHtml');
 }

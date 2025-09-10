@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'qr_scanner_service.dart';
 
 class GrantQrScannerPage extends StatefulWidget {
   final void Function(String) onScanned;
-  const GrantQrScannerPage({super.key, required this.onScanned});
+  final QrScannerService? qrScannerService;
+  
+  const GrantQrScannerPage({
+    super.key, 
+    required this.onScanned,
+    this.qrScannerService,
+  });
 
   @override
   State<GrantQrScannerPage> createState() => _GrantQrScannerPageState();
@@ -11,29 +17,25 @@ class GrantQrScannerPage extends StatefulWidget {
 
 class _GrantQrScannerPageState extends State<GrantQrScannerPage> {
   bool _scanned = false;
+  late final QrScannerService _qrScannerService;
 
-  void _onDetect(BarcodeCapture capture) {
+  @override
+  void initState() {
+    super.initState();
+    _qrScannerService = widget.qrScannerService ?? RealQrScannerService();
+  }
+
+  void _onScanned(String code) {
     if (_scanned) return;
-    final code = capture.barcodes.firstOrNull?.rawValue;
-    if (code != null && code.isNotEmpty) {
-      setState(() => _scanned = true);
-      widget.onScanned(code);
-    }
+    setState(() => _scanned = true);
+    widget.onScanned(code);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Scan Lock QR Code')),
-      body: Stack(
-        children: [
-          MobileScanner(
-            onDetect: _onDetect,
-          ),
-          if (_scanned)
-            const Center(child: CircularProgressIndicator()),
-        ],
-      ),
+      body: _qrScannerService.buildQrScanner(onScanned: _onScanned),
     );
   }
 }

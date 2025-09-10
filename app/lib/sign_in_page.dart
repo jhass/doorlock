@@ -46,12 +46,14 @@ class _SignInPageState extends State<SignInPage> {
                 const SizedBox(height: 16),
               ],
               TextFormField(
+                key: const Key('username_field'),
                 controller: _usernameController,
                 decoration: const InputDecoration(labelText: 'Username'),
                 validator: (v) => v == null || v.isEmpty ? 'Enter username' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: const Key('password_field'),
                 controller: _passwordController,
                 decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
@@ -59,6 +61,7 @@ class _SignInPageState extends State<SignInPage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
+                key: const Key('sign_in_button'),
                 onPressed: _submit,
                 child: const Text('Sign In'),
               ),

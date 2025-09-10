@@ -49,6 +49,7 @@ class _AddHomeAssistantPageState extends State<AddHomeAssistantPage> {
                 const SizedBox(height: 16),
               ],
               TextFormField(
+                key: const Key('ha_url_field'),
                 controller: _urlController,
                 decoration: const InputDecoration(labelText: 'Home Assistant Base URL'),
                 validator: (v) => v == null || v.isEmpty ? 'Enter the base URL' : null,
@@ -56,6 +57,7 @@ class _AddHomeAssistantPageState extends State<AddHomeAssistantPage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
+                key: const Key('submit_ha_button'),
                 onPressed: _submitting ? null : _submit,
                 child: _submitting ? const CircularProgressIndicator() : const Text('Add'),
               ),
