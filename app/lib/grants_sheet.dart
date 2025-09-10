@@ -118,12 +118,12 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null && mounted) {
+                          if (picked != null && currentContext.mounted) {
                             final time = await showTimePicker(
                               context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
                             );
-                            if (time != null && mounted) {
+                            if (time != null && currentContext.mounted) {
                               // Combine picked date and time as local, then convert to UTC for storage
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
@@ -156,12 +156,12 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null && mounted) {
+                          if (picked != null && currentContext.mounted) {
                             final time = await showTimePicker(
                               context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
                             );
-                            if (time != null && mounted) {
+                            if (time != null && currentContext.mounted) {
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
                                 notAfter = local;
@@ -208,9 +208,11 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                     'name': name,
                                   };
                                   await _pb.collection('doorlock_grants').create(body: body);
-                                  if (mounted) {
+                                  if (currentContext.mounted) {
                                     Navigator.of(currentContext).pop();
-                                    await _fetchGrants();
+                                    if (mounted) {
+                                      await _fetchGrants();
+                                    }
                                   }
                                 } on ClientException catch (e) {
                                   setModalState(() {
@@ -300,12 +302,12 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null && mounted) {
+                          if (picked != null && currentContext.mounted) {
                             final time = await showTimePicker(
                               context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
                             );
-                            if (time != null && mounted) {
+                            if (time != null && currentContext.mounted) {
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
                                 notBefore = local;
@@ -337,12 +339,12 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             firstDate: now.subtract(const Duration(days: 365)),
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
-                          if (picked != null && mounted) {
+                          if (picked != null && currentContext.mounted) {
                             final time = await showTimePicker(
                               context: currentContext,
                               initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
                             );
-                            if (time != null && mounted) {
+                            if (time != null && currentContext.mounted) {
                               final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
                               setModalState(() {
                                 notAfter = local;
@@ -389,9 +391,11 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                     'name': name,
                                   };
                                   await _pb.collection('doorlock_grants').update(grant['id'], body: body);
-                                  if (mounted) {
+                                  if (currentContext.mounted) {
                                     Navigator.of(currentContext).pop();
-                                    await _fetchGrants();
+                                    if (mounted) {
+                                      await _fetchGrants();
+                                    }
                                   }
                                 } on ClientException catch (e) {
                                   setModalState(() {
