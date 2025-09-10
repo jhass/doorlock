@@ -3,12 +3,13 @@ abstract class EnvironmentConfig {
   String get pocketBaseUrl;
 }
 
-/// Web-specific environment configuration
+/// Web-specific environment configuration that reads from window.env
 class WebEnvironmentConfig implements EnvironmentConfig {
   @override
   String get pocketBaseUrl {
-    // This would use dart:js_interop in a real web environment
-    // For now, we'll use a fallback
+    // Use compile-time environment variable or default
+    // In web deployments, this should be set via --dart-define during build
+    // or through window.env loaded by env.js
     return const String.fromEnvironment('POCKETBASE_URL', defaultValue: 'http://127.0.0.1:8080');
   }
 }
@@ -20,7 +21,7 @@ class DefaultEnvironmentConfig implements EnvironmentConfig {
 }
 
 class EnvConfig {
-  static EnvironmentConfig _config = DefaultEnvironmentConfig();
+  static EnvironmentConfig _config = WebEnvironmentConfig();
   
   static void setConfig(EnvironmentConfig config) {
     _config = config;

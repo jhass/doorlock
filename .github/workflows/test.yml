@@ -30,13 +30,7 @@ jobs:
           cd ${{ github.workspace }}/app
           flutter analyze
 
-      - name: Run widget tests
+      - name: Run integration tests
         run: |
           cd ${{ github.workspace }}
           ./scripts/run_integration_tests.sh
-
-      - name: Test Summary
-        if: success()
-        run: |
-          echo "✅ All tests passed successfully!"
-          echo "📊 Test Coverage: UI validation, form handling, user interactions, error handling"

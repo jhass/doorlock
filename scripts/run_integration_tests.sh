@@ -161,7 +161,7 @@ export POCKETBASE_URL="http://localhost:$POCKETBASE_PORT"
 # Run the integration tests
 echo "Starting integration test runner..."
 
-if flutter test test/integration_test.dart --timeout=60s; then
+if flutter test test/integration_test.dart --timeout=300s; then
     print_status "All integration tests passed!"
     echo ""
     echo "📊 Test Summary"

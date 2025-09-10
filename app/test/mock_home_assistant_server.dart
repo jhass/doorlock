@@ -15,9 +15,10 @@ class MockHomeAssistantServer {
     // ignore: avoid_print
     print('Mock Home Assistant server started on http://localhost:$port');
 
-    await for (HttpRequest request in _server!) {
+    // Handle requests asynchronously without blocking
+    _server!.listen((HttpRequest request) async {
       await _handleRequest(request);
-    }
+    });
   }
 
   /// Stop the mock Home Assistant server

@@ -1,15 +1,8 @@
+import 'window_service_web.dart' if (dart.library.io) 'window_service_stub.dart';
+
 /// Interface for platform-specific window operations
 abstract class WindowService {
   void openWindow(String url);
-}
-
-/// Web-specific window service
-class WebWindowService implements WindowService {
-  @override
-  void openWindow(String url) {
-    // For now, just print - in real web environment would use dart:js_util
-    print('Would open window: $url');
-  }
 }
 
 // Global window service for dependency injection
