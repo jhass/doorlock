@@ -54,6 +54,46 @@ class PocketBaseTestService {
 
   /// Setup admin user
   static Future<void> _setupAdmin() async {
+    print('Setting up authentication for PocketBase...');
+    
+    // Skip admin setup in dev mode - try creating a test user directly first
+    try {
+      // Try creating a test user in the doorlock_users collection
+      final createUserResponse = await http.post(
+        Uri.parse('$_pocketBaseUrl/api/collections/doorlock_users/records'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': 'testuser@example.com',
+          'password': 'testpass123',
+          'passwordConfirm': 'testpass123',
+        }),
+      );
+
+      if (createUserResponse.statusCode == 200 || createUserResponse.statusCode == 201) {
+        print('Test user created successfully');
+        
+        // Authenticate as the test user
+        final authResponse = await http.post(
+          Uri.parse('$_pocketBaseUrl/api/collections/doorlock_users/auth-with-password'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identity': 'testuser@example.com',
+            'password': 'testpass123',
+          }),
+        );
+
+        if (authResponse.statusCode == 200) {
+          final authData = jsonDecode(authResponse.body);
+          _adminToken = authData['token'];
+          print('Test user authenticated successfully');
+          return;
+        }
+      }
+    } catch (e) {
+      print('User creation approach failed: $e');
+    }
+
+    // Fallback to admin approach
     try {
       // Try to authenticate as admin first
       final authResponse = await http.post(
@@ -75,7 +115,7 @@ class PocketBaseTestService {
       // Admin doesn't exist, create it
     }
 
-    // Create admin user
+    // Create admin user as last resort
     print('Creating admin user...');
     final createResponse = await http.post(
       Uri.parse('$_pocketBaseUrl/api/admins'),
@@ -87,27 +127,26 @@ class PocketBaseTestService {
       }),
     );
 
-    if (createResponse.statusCode != 200) {
-      throw Exception('Failed to create admin user: ${createResponse.body}');
+    if (createResponse.statusCode == 200 || createResponse.statusCode == 201) {
+      // Authenticate as admin
+      final authResponse = await http.post(
+        Uri.parse('$_pocketBaseUrl/api/admins/auth-with-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'identity': _adminEmail,
+          'password': _adminPassword,
+        }),
+      );
+
+      if (authResponse.statusCode == 200) {
+        final authData = jsonDecode(authResponse.body);
+        _adminToken = authData['token'];
+        print('Admin user created and authenticated');
+        return;
+      }
     }
 
-    // Authenticate as admin
-    final authResponse = await http.post(
-      Uri.parse('$_pocketBaseUrl/api/admins/auth-with-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'identity': _adminEmail,
-        'password': _adminPassword,
-      }),
-    );
-
-    if (authResponse.statusCode != 200) {
-      throw Exception('Failed to authenticate admin: ${authResponse.body}');
-    }
-
-    final authData = jsonDecode(authResponse.body);
-    _adminToken = authData['token'];
-    print('Admin user created and authenticated');
+    throw Exception('Failed to set up PocketBase authentication');
   }
 
   /// Create doorlock_users collection and test user
