@@ -53,13 +53,16 @@ fi
 if [ "$FAIL_FAST" = "1" ] && { [ "$STAGE_1_STATUS" = "FAIL" ] || [ "$STAGE_2_STATUS" = "FAIL" ]; }; then
 	:
 else
-	run_stage 3 "xvfb-run -a dart run tool/start_test_infra.dart" "cd /workspace/app && xvfb-run -a dart run tool/start_test_infra.dart" || true
+	run_stage 3 "browser preflight + integration (xvfb-run -a dart run tool/start_test_infra.dart)" "cd /workspace/app && xvfb-run -a dart run tool/start_test_infra.dart" || true
+if [ "$STAGE_3_STATUS" = "FAIL" ]; then
+	echo "[local-test] integration stage failed; browser preflight output appears above in [infra] logs"
+fi
 fi
 
 echo "[summary] final stage results"
 echo "[summary] flutter pub get: $STAGE_1_STATUS"
 echo "[summary] flutter test --reporter expanded: $STAGE_2_STATUS"
-echo "[summary] xvfb-run -a dart run tool/start_test_infra.dart: $STAGE_3_STATUS"
+echo "[summary] browser preflight + integration: $STAGE_3_STATUS"
 
 if [ "$FAILED" -ne 0 ]; then
 	exit 1

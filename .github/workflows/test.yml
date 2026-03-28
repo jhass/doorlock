@@ -15,12 +15,13 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.41.6'
           channel: stable
 
-      - name: Download PocketBase 0.28.2
+      - name: Download PocketBase 0.36.8
         run: |
           curl -L \
-            "https://github.com/pocketbase/pocketbase/releases/download/v0.28.2/pocketbase_0.28.2_linux_amd64.zip" \
+            "https://github.com/pocketbase/pocketbase/releases/download/v0.36.8/pocketbase_0.36.8_linux_amd64.zip" \
             -o pb.zip
           unzip pb.zip -d tools/
           chmod +x tools/pocketbase

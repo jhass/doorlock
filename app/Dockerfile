@@ -1,7 +1,7 @@
 # Dockerfile for building and running the Flutter web app with runtime POCKETBASE_URL
 
 # Build stage
-FROM --platform=linux/amd64 ghcr.io/cirruslabs/flutter:stable AS build
+FROM --platform=linux/amd64 ghcr.io/cirruslabs/flutter:3.41.6 AS build
 WORKDIR /app
 COPY . .
 RUN flutter pub get && flutter build web --release
