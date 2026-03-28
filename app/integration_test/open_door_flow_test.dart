@@ -46,7 +46,7 @@ void main() {
     await tester.tap(find.byKey(const Key('simulate_scan')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Open Door'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Open Door'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
     await tester.pumpAndSettle();
