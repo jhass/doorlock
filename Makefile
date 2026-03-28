@@ -49,3 +49,26 @@ dev: dev-setup ## Quick start: setup and start development environment
 	@echo "   Frontend: http://localhost:8090 (after running 'make dev-start')"
 	@echo ""
 	@echo "💡 Next: run 'make dev-start' in a new terminal to start the frontend"
+
+PB_VERSION ?= 0.28.2
+
+install-pb-test: ## Download PocketBase binary for tests (tools/pocketbase)
+	@mkdir -p tools
+	@OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+	ARCH=$$(uname -m); \
+	if [ "$$ARCH" = "x86_64" ]; then ARCH="amd64"; fi; \
+	if [ "$$ARCH" = "arm64" ]; then ARCH="arm64"; fi; \
+	curl -L \
+		"https://github.com/pocketbase/pocketbase/releases/download/v$(PB_VERSION)/pocketbase_$(PB_VERSION)_$${OS}_$${ARCH}.zip" \
+		-o /tmp/pb.zip && \
+	unzip -o /tmp/pb.zip -d tools/ && \
+	chmod +x tools/pocketbase
+	@echo "PocketBase $(PB_VERSION) installed at tools/pocketbase"
+
+test: ## Run widget tests (Dart VM) - requires pocketbase binary
+	cd app && flutter test --reporter expanded
+
+integration-test: ## Run Chrome integration tests - requires pocketbase binary and Chrome
+	cd app && dart run tool/start_test_infra.dart
+
+test-all: test integration-test ## Run all tests
