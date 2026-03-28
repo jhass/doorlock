@@ -26,11 +26,12 @@ jobs:
           chmod +x tools/pocketbase
           echo "POCKETBASE_BINARY=$PWD/tools/pocketbase" >> "$GITHUB_ENV"
 
-      - name: Install Chrome WebDriver
+      - name: Install Chrome and ChromeDriver
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-chromedriver
+          sudo apt-get install -y chromium-browser chromium-chromedriver
           echo "CHROMEDRIVER_BINARY=/usr/bin/chromedriver" >> "$GITHUB_ENV"
+          echo "CHROME_EXECUTABLE=$(which chromium-browser)" >> "$GITHUB_ENV"
 
       - name: Flutter pub get
         run: flutter pub get
@@ -45,5 +46,5 @@ jobs:
         working-directory: app
         env:
           POCKETBASE_BINARY: ${{ env.POCKETBASE_BINARY }}
-          CHROME_EXECUTABLE: google-chrome
+          CHROME_EXECUTABLE: ${{ env.CHROME_EXECUTABLE }}
           CHROMEDRIVER_BINARY: ${{ env.CHROMEDRIVER_BINARY }}
