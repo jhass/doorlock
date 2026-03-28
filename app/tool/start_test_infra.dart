@@ -7,22 +7,11 @@ import '../test_support/test_fixtures.dart';
 import '../test_support/test_pocketbase.dart';
 
 Future<void> main() async {
-  Process? webDriver;
   MockHomeAssistantServer? ha;
   TestPocketBase? pb;
   var exitCode = 1;
 
   try {
-    final webDriverBinary =
-        Platform.environment['CHROMEDRIVER_BINARY'] ?? 'chromedriver';
-    print('[infra] Starting WebDriver ($webDriverBinary)...');
-    webDriver = await Process.start(webDriverBinary, ['--port=4444']);
-    webDriver.stdout.listen((data) => stdout.add(data));
-    webDriver.stderr.listen((data) => stderr.add(data));
-
-    await _waitForPort(4444, const Duration(seconds: 20));
-    print('[infra] WebDriver is ready on port 4444');
-
     print('[infra] Starting MockHomeAssistantServer...');
     ha = await MockHomeAssistantServer.start();
     print('[infra] MockHA listening on ${ha.baseUrl}');
@@ -82,13 +71,6 @@ Future<void> main() async {
     print('[infra] Tests finished with exit code $exitCode. Cleaning up...');
     if (pb != null) await pb.stop();
     if (ha != null) await ha.stop();
-    if (webDriver != null) {
-      webDriver.kill();
-      await webDriver.exitCode.timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => -1,
-      );
-    }
   }
 
   exit(exitCode);
@@ -121,72 +103,96 @@ Future<int> _runDriveTarget({
   required String lockToken,
   required String grantToken,
 }) async {
-  final result = await Process.start(
-    'flutter',
-    [
-      'drive',
-      '--driver=test_driver/integration_test.dart',
-      '--target=$target',
-      '--no-keep-app-running',
-      '-d',
-      'chrome',
-      '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
-      '--dart-define=HA_URL=$haUrl',
-      '--dart-define=TEST_USER_EMAIL=inttest@test.local',
-      '--dart-define=TEST_USER_PASSWORD=inttestpassword',
-      '--dart-define=TEST_HA_ID=$haId',
-      '--dart-define=TEST_HA_URL=$haUrl',
-      '--dart-define=TEST_LOCK_ID=$lockId',
-      '--dart-define=TEST_LOCK_TOKEN=$lockToken',
-      '--dart-define=TEST_GRANT_TOKEN=$grantToken',
-    ],
-    runInShell: false,
-  );
+  // Start a fresh chromedriver for each target to avoid Chrome debug-service
+  // connection errors when re-using a single chromedriver across invocations.
+  final webDriverBinary =
+      Platform.environment['CHROMEDRIVER_BINARY'] ?? 'chromedriver';
+  print('[infra] Starting WebDriver ($webDriverBinary) for $target...');
+  final webDriver = await Process.start(webDriverBinary, ['--port=4444']);
+  webDriver.stdout.drain<void>();
+  webDriver.stderr.drain<void>();
 
-  final earlyExit = Completer<int>();
-  var sawSuccess = false;
-  var sawFailure = false;
+  try {
+    await _waitForPort(4444, const Duration(seconds: 20));
+    print('[infra] WebDriver ready. Launching $target...');
 
-  result.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
-    stdout.writeln(line);
-    if (line.contains('All tests passed!')) {
-      sawSuccess = true;
-      // In CI web runs, flutter drive can hang after reporting success.
-      Future<void>.delayed(const Duration(seconds: 2), () {
-        if (earlyExit.isCompleted) {
-          return;
+    final result = await Process.start(
+      'flutter',
+      [
+        'drive',
+        '--driver=test_driver/integration_test.dart',
+        '--target=$target',
+        '--no-keep-app-running',
+        '-d',
+        'chrome',
+        '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
+        '--dart-define=HA_URL=$haUrl',
+        '--dart-define=TEST_USER_EMAIL=inttest@test.local',
+        '--dart-define=TEST_USER_PASSWORD=inttestpassword',
+        '--dart-define=TEST_HA_ID=$haId',
+        '--dart-define=TEST_HA_URL=$haUrl',
+        '--dart-define=TEST_LOCK_ID=$lockId',
+        '--dart-define=TEST_LOCK_TOKEN=$lockToken',
+        '--dart-define=TEST_GRANT_TOKEN=$grantToken',
+      ],
+      runInShell: false,
+    );
+
+    final earlyExit = Completer<int>();
+    var sawSuccess = false;
+    var sawFailure = false;
+
+    result.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((
+      line,
+    ) {
+      stdout.writeln(line);
+      if (line.contains('All tests passed!')) {
+        sawSuccess = true;
+        // In CI web runs, flutter drive can hang after reporting success.
+        Future<void>.delayed(const Duration(seconds: 2), () {
+          if (earlyExit.isCompleted) return;
+          result.kill();
+          earlyExit.complete(0);
+        });
+      }
+      if (line.contains('Some tests failed.')) {
+        sawFailure = true;
+        if (!earlyExit.isCompleted) {
+          result.kill();
+          earlyExit.complete(1);
+        }
+      }
+    });
+
+    result.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
+      stderr.writeln(line);
+    });
+
+    return Future.any([result.exitCode, earlyExit.future]).timeout(
+      const Duration(minutes: 8),
+      onTimeout: () {
+        if (sawSuccess) {
+          result.kill();
+          return 0;
+        }
+        if (sawFailure) {
+          result.kill();
+          return 1;
         }
         result.kill();
-        earlyExit.complete(0);
-      });
-    }
-    if (line.contains('Some tests failed.')) {
-      sawFailure = true;
-      if (!earlyExit.isCompleted) {
-        result.kill();
-        earlyExit.complete(1);
-      }
-    }
-  });
-
-  result.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
-    stderr.writeln(line);
-  });
-
-  return Future.any([result.exitCode, earlyExit.future]).timeout(
-    const Duration(minutes: 8),
-    onTimeout: () {
-      // Some web runs can print success but hang on process shutdown.
-      if (sawSuccess) {
-        result.kill();
-        return 0;
-      }
-      if (sawFailure) {
-        result.kill();
-        return 1;
-      }
-      result.kill();
-      return 124;
-    },
-  );
+        return 124;
+      },
+    );
+  } finally {
+    webDriver.kill();
+    await webDriver.exitCode.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => -1,
+    );
+    // Give the OS time to release port 4444 before the next invocation.
+    await Future<void>.delayed(const Duration(seconds: 2));
+  }
 }
