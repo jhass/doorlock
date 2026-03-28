@@ -40,6 +40,8 @@ dependencies:
   qr_flutter: ^4.1.0
 
 dev_dependencies:
+  integration_test:
+    sdk: flutter
   flutter_test:
     sdk: flutter
 
