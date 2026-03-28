@@ -6,11 +6,25 @@ import '../test_support/mock_ha_server.dart';
 import '../test_support/test_fixtures.dart';
 import '../test_support/test_pocketbase.dart';
 Future<void> main() async {
+  Process? webDriver;
   MockHomeAssistantServer? ha;
   TestPocketBase? pb;
   var exitCode = 1;
 
   try {
+    // Start chromedriver first so it has time to fully initialise while we
+    // set up MockHA, PocketBase, and seed test data.
+    final webDriverBinary =
+        Platform.environment['CHROMEDRIVER_BINARY'] ?? 'chromedriver';
+    print('[infra] Starting WebDriver ($webDriverBinary)...');
+    webDriver = await Process.start(webDriverBinary, ['--port=4444']);
+    webDriver.stdout.drain<void>();
+    // Pipe chromedriver stderr so startup errors appear in CI logs.
+    webDriver.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) => stderr.writeln('[chromedriver] $line'));
+
     print('[infra] Starting MockHomeAssistantServer...');
     ha = await MockHomeAssistantServer.start();
     print('[infra] MockHA listening on ${ha.baseUrl}');
@@ -33,6 +47,10 @@ Future<void> main() async {
 
     print('[infra] Test data seeded. Running integration tests...');
 
+    // By now chromedriver has had several seconds to fully initialise.
+    await _waitForChromeDriver(const Duration(seconds: 30));
+    print('[infra] WebDriver is ready on port 4444');
+
     final targets = <String>[
       'integration_test/auth_flow_test.dart',
       'integration_test/admin_flow_test.dart',
@@ -52,6 +70,9 @@ Future<void> main() async {
         lockToken: lockToken,
         grantToken: grantToken,
       );
+      // Delete any stale WebDriver sessions so the next target gets a clean
+      // Chrome instance from the same chromedriver process.
+      await _deleteWebDriverSessions();
       if (exitCode != 0) {
         print('[infra] $target failed with exit code $exitCode');
         break;
@@ -70,6 +91,13 @@ Future<void> main() async {
     print('[infra] Tests finished with exit code $exitCode. Cleaning up...');
     if (pb != null) await pb.stop();
     if (ha != null) await ha.stop();
+    if (webDriver != null) {
+      webDriver.kill();
+      await webDriver.exitCode.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => -1,
+      );
+    }
   }
 
   exit(exitCode);
@@ -113,100 +141,110 @@ Future<int> _runDriveTarget({
   required String lockToken,
   required String grantToken,
 }) async {
-  // Start a fresh chromedriver for each target to avoid Chrome debug-service
-  // connection errors when re-using a single chromedriver across invocations.
-  final webDriverBinary =
-      Platform.environment['CHROMEDRIVER_BINARY'] ?? 'chromedriver';
-  print('[infra] Starting WebDriver ($webDriverBinary) for $target...');
-  final webDriver = await Process.start(webDriverBinary, ['--port=4444']);
-  webDriver.stdout.drain<void>();
-  // Pipe chromedriver stderr so startup errors appear in CI logs.
-  webDriver.stderr
+  print('[infra] Launching $target...');
+  final result = await Process.start(
+    'flutter',
+    [
+      'drive',
+      '--driver=test_driver/integration_test.dart',
+      '--target=$target',
+      '--no-keep-app-running',
+      '-d',
+      'chrome',
+      '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
+      '--dart-define=HA_URL=$haUrl',
+      '--dart-define=TEST_USER_EMAIL=inttest@test.local',
+      '--dart-define=TEST_USER_PASSWORD=inttestpassword',
+      '--dart-define=TEST_HA_ID=$haId',
+      '--dart-define=TEST_HA_URL=$haUrl',
+      '--dart-define=TEST_LOCK_ID=$lockId',
+      '--dart-define=TEST_LOCK_TOKEN=$lockToken',
+      '--dart-define=TEST_GRANT_TOKEN=$grantToken',
+    ],
+    runInShell: false,
+  );
+
+  final earlyExit = Completer<int>();
+  var sawSuccess = false;
+  var sawFailure = false;
+
+  result.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((
+    line,
+  ) {
+    stdout.writeln(line);
+    if (line.contains('All tests passed!')) {
+      sawSuccess = true;
+      // In CI web runs, flutter drive can hang after reporting success.
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        if (earlyExit.isCompleted) return;
+        result.kill();
+        earlyExit.complete(0);
+      });
+    }
+    if (line.contains('Some tests failed.')) {
+      sawFailure = true;
+      if (!earlyExit.isCompleted) {
+        result.kill();
+        earlyExit.complete(1);
+      }
+    }
+  });
+
+  result.stderr
       .transform(utf8.decoder)
       .transform(const LineSplitter())
-      .listen((line) => stderr.writeln('[chromedriver] $line'));
+      .listen((line) {
+    stderr.writeln(line);
+  });
 
-  try {
-    await _waitForChromeDriver(const Duration(seconds: 30));
-    print('[infra] WebDriver ready. Launching $target...');
-
-    final result = await Process.start(
-      'flutter',
-      [
-        'drive',
-        '--driver=test_driver/integration_test.dart',
-        '--target=$target',
-        '--no-keep-app-running',
-        '-d',
-        'chrome',
-        '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
-        '--dart-define=HA_URL=$haUrl',
-        '--dart-define=TEST_USER_EMAIL=inttest@test.local',
-        '--dart-define=TEST_USER_PASSWORD=inttestpassword',
-        '--dart-define=TEST_HA_ID=$haId',
-        '--dart-define=TEST_HA_URL=$haUrl',
-        '--dart-define=TEST_LOCK_ID=$lockId',
-        '--dart-define=TEST_LOCK_TOKEN=$lockToken',
-        '--dart-define=TEST_GRANT_TOKEN=$grantToken',
-      ],
-      runInShell: false,
-    );
-
-    final earlyExit = Completer<int>();
-    var sawSuccess = false;
-    var sawFailure = false;
-
-    result.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((
-      line,
-    ) {
-      stdout.writeln(line);
-      if (line.contains('All tests passed!')) {
-        sawSuccess = true;
-        // In CI web runs, flutter drive can hang after reporting success.
-        Future<void>.delayed(const Duration(seconds: 2), () {
-          if (earlyExit.isCompleted) return;
-          result.kill();
-          earlyExit.complete(0);
-        });
-      }
-      if (line.contains('Some tests failed.')) {
-        sawFailure = true;
-        if (!earlyExit.isCompleted) {
-          result.kill();
-          earlyExit.complete(1);
-        }
-      }
-    });
-
-    result.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) {
-      stderr.writeln(line);
-    });
-
-    return Future.any([result.exitCode, earlyExit.future]).timeout(
-      const Duration(minutes: 8),
-      onTimeout: () {
-        if (sawSuccess) {
-          result.kill();
-          return 0;
-        }
-        if (sawFailure) {
-          result.kill();
-          return 1;
-        }
+  return Future.any([result.exitCode, earlyExit.future]).timeout(
+    const Duration(minutes: 8),
+    onTimeout: () {
+      if (sawSuccess) {
         result.kill();
-        return 124;
-      },
-    );
+        return 0;
+      }
+      if (sawFailure) {
+        result.kill();
+        return 1;
+      }
+      result.kill();
+      return 124;
+    },
+  );
+}
+
+/// Deletes all active WebDriver sessions so the next [_runDriveTarget] call
+/// starts with a clean Chrome instance. Without this, the Chrome window
+/// orphaned when we kill flutter drive after success stays alive and causes
+/// DWDS [AppConnectionException] on the following invocation.
+Future<void> _deleteWebDriverSessions() async {
+  final client = HttpClient();
+  try {
+    final request = await client
+        .getUrl(Uri.parse('http://localhost:4444/sessions'))
+        .timeout(const Duration(seconds: 5));
+    final response = await request.close().timeout(const Duration(seconds: 5));
+    final body = await response.transform(utf8.decoder).join();
+    final json = jsonDecode(body) as Map<String, dynamic>?;
+    final sessions = json?['value'] as List<dynamic>?;
+    if (sessions == null) return;
+    for (final session in sessions) {
+      final id = (session as Map<String, dynamic>?)?['id'] as String?;
+      if (id == null) continue;
+      try {
+        final del = await client
+            .deleteUrl(Uri.parse('http://localhost:4444/session/$id'))
+            .timeout(const Duration(seconds: 5));
+        final delResp =
+            await del.close().timeout(const Duration(seconds: 10));
+        await delResp.drain<void>();
+        print('[infra] Closed WebDriver session $id');
+      } catch (_) {}
+    }
+  } catch (_) {
+    // If chromedriver is unreachable, nothing to clean up.
   } finally {
-    webDriver.kill();
-    await webDriver.exitCode.timeout(
-      const Duration(seconds: 5),
-      onTimeout: () => -1,
-    );
-    // Give the OS time to release port 4444 before the next invocation.
-    await Future<void>.delayed(const Duration(seconds: 2));
+    client.close();
   }
 }
