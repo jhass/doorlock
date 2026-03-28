@@ -5,7 +5,6 @@ import 'dart:io';
 import '../test_support/mock_ha_server.dart';
 import '../test_support/test_fixtures.dart';
 import '../test_support/test_pocketbase.dart';
-
 Future<void> main() async {
   MockHomeAssistantServer? ha;
   TestPocketBase? pb;
@@ -76,22 +75,29 @@ Future<void> main() async {
   exit(exitCode);
 }
 
-Future<void> _waitForPort(int port, Duration timeout) async {
+Future<void> _waitForChromeDriver(Duration timeout) async {
+  final client = HttpClient();
   final deadline = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(deadline)) {
-    try {
-      final socket = await Socket.connect(
-        InternetAddress.loopbackIPv4,
-        port,
-        timeout: const Duration(seconds: 1),
-      );
-      await socket.close();
-      return;
-    } catch (_) {
-      await Future<void>.delayed(const Duration(milliseconds: 250));
+  try {
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final request = await client.getUrl(
+          Uri.parse('http://localhost:4444/status'),
+        );
+        final response = await request.close().timeout(
+          const Duration(seconds: 2),
+        );
+        await response.drain<void>();
+        if (response.statusCode == 200) return;
+      } catch (_) {
+        // Not ready yet.
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
     }
+  } finally {
+    client.close();
   }
-  throw TimeoutException('WebDriver did not become ready on port $port');
+  throw TimeoutException('chromedriver did not become ready on port 4444');
 }
 
 Future<int> _runDriveTarget({
@@ -118,7 +124,7 @@ Future<int> _runDriveTarget({
   webDriver.stderr.drain<void>();
 
   try {
-    await _waitForPort(4444, const Duration(seconds: 20));
+    await _waitForChromeDriver(const Duration(seconds: 30));
     print('[infra] WebDriver ready. Launching $target...');
 
     final result = await Process.start(
@@ -128,7 +134,6 @@ Future<int> _runDriveTarget({
         '--driver=test_driver/integration_test.dart',
         '--target=$target',
         '--no-keep-app-running',
-        '--no-pub',
         '-d',
         'chrome',
         '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
