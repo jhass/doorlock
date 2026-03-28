@@ -20,7 +20,9 @@ jobs:
           flutter-version: '3.35.0'
           channel: 'stable'
 
-      - name: Run CI tests
+      - name: Run integration tests
         run: |
-          cd ${{ github.workspace }}
-          ./scripts/run_ci_tests.sh
+          cd ${{ github.workspace }}/app
+          flutter pub get
+          flutter analyze
+          flutter test test/integration_test.dart
