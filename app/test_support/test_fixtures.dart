@@ -28,7 +28,7 @@ class TestFixtures {
     String email = 'testuser@test.local',
     String password = 'testpassword',
   }) async {
-    final pb = PocketBase(adminClient.baseUrl);
+    final pb = PocketBase(adminClient.baseURL);
     await pb.collection('doorlock_users').authWithPassword(email, password);
     return pb;
   }

@@ -8,7 +8,9 @@ abstract class ShareService {
 class RealShareService implements ShareService {
   @override
   Future<void> shareText(String text) async {
-    await Share.share(text);
+    await SharePlus.instance.share(
+      ShareParams(text: text),
+    );
   }
 }
 

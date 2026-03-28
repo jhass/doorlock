@@ -128,6 +128,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
                           if (picked != null) {
+                            if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
                               initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
@@ -165,6 +166,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
                           if (picked != null) {
+                            if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
                               initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
@@ -215,7 +217,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                     'name': name,
                                   };
                                   await _pb.collection('doorlock_grants').create(body: body);
-                                  if (mounted) {
+                                  if (context.mounted) {
                                     Navigator.of(context).pop();
                                     await _fetchGrants();
                                   }
@@ -307,6 +309,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
                           if (picked != null) {
+                            if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
                               initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
@@ -343,6 +346,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             lastDate: now.add(const Duration(days: 365 * 10)),
                           );
                           if (picked != null) {
+                            if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
                               initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
@@ -393,7 +397,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                     'name': name,
                                   };
                                   await _pb.collection('doorlock_grants').update(grant['id'], body: body);
-                                  if (mounted) {
+                                  if (context.mounted) {
                                     Navigator.of(context).pop();
                                     await _fetchGrants();
                                   }

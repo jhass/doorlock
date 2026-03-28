@@ -241,7 +241,9 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
         final pb = PBScope.of(context);
         await SessionStorage.clearSession();
         pb.authStore.clear();
-        Navigator.of(context).pushReplacementNamed('/');
+        if (context.mounted) {
+          Navigator.of(context).pushReplacementNamed('/');
+        }
       },
       onAdd: _showAddPage,
     );

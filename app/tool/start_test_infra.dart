@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -5,6 +7,7 @@ import 'dart:io';
 import '../test_support/mock_ha_server.dart';
 import '../test_support/test_fixtures.dart';
 import '../test_support/test_pocketbase.dart';
+
 Future<void> main() async {
   Process? webDriver;
   MockHomeAssistantServer? ha;

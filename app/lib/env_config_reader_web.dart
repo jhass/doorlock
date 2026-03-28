@@ -4,6 +4,8 @@ import 'dart:js_interop';
 external JSObject? get _env;
 
 extension EnvJSObjectExt on JSObject {
+  // JS environment key naming intentionally follows UPPER_SNAKE_CASE.
+  // ignore: non_constant_identifier_names
   external String? get POCKETBASE_URL;
 }
 
