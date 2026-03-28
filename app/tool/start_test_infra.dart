@@ -114,14 +114,13 @@ Future<int> _runDriveTarget({
   final webDriverBinary =
       Platform.environment['CHROMEDRIVER_BINARY'] ?? 'chromedriver';
   print('[infra] Starting WebDriver ($webDriverBinary) for $target...');
-  // Use a long session timeout so chromedriver stays alive while flutter
-  // drive resolves pub dependencies before creating the WebDriver session.
-  final webDriver = await Process.start(webDriverBinary, [
-    '--port=4444',
-    '--session-timeout=300',
-  ]);
+  final webDriver = await Process.start(webDriverBinary, ['--port=4444']);
   webDriver.stdout.drain<void>();
-  webDriver.stderr.drain<void>();
+  // Pipe chromedriver stderr so startup errors appear in CI logs.
+  webDriver.stderr
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .listen((line) => stderr.writeln('[chromedriver] $line'));
 
   try {
     await _waitForChromeDriver(const Duration(seconds: 30));
