@@ -134,8 +134,28 @@ class TestPocketBase {
   }
 
   /// Repo root is the parent of the app/ directory.
-  /// When running `flutter test` from app/, Directory.current == app/.
-  static String _repoRoot() => Directory.current.parent.path;
+  /// Falls back by walking upward until pb_hooks and pb_migrations are found.
+  static String _repoRoot() {
+    final envRoot = Platform.environment['REPO_ROOT'];
+    if (envRoot != null && envRoot.isNotEmpty) {
+      return envRoot;
+    }
+
+    var dir = Directory.current.absolute;
+    for (var i = 0; i < 6; i++) {
+      final hooks = Directory('${dir.path}/pb_hooks');
+      final migrations = Directory('${dir.path}/pb_migrations');
+      if (hooks.existsSync() && migrations.existsSync()) {
+        return dir.path;
+      }
+      final parent = dir.parent;
+      if (parent.path == dir.path) break;
+      dir = parent;
+    }
+
+    // Keep previous behavior as the final fallback.
+    return Directory.current.parent.path;
+  }
 
   static Future<int> _findFreePort() async {
     final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
