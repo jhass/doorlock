@@ -11,7 +11,8 @@ class PBScope extends InheritedWidget {
   /// Retrieves the nearest [PocketBase] instance from the widget tree.
   /// Safe to call from [State.initState], [State.build], and event handlers.
   static PocketBase of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<PBScope>();
+    final element = context.getElementForInheritedWidgetOfExactType<PBScope>();
+    final scope = element?.widget as PBScope?;
     assert(
       scope != null,
       'No PBScope found in context. Wrap your app or widget under test with PBScope.',
