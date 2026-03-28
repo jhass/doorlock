@@ -128,13 +128,12 @@ File: `app/test_support/test_pocketbase.dart`
 Lifecycle:
 
 1. Resolves PocketBase binary: `Platform.environment['POCKETBASE_BINARY']` → `pocketbase` on `$PATH`.
-2. Creates a temp directory for `pb_data`.
-3. Symlinks (or copies on Windows) `pb_hooks/` and `pb_migrations/` from the repo root into the temp dir — resolved relative to this file's location via `Platform.script`.
-4. Finds a free port.
-5. Runs `pocketbase superuser create admin@test.local testpassword --dir <tempDir>/pb_data` to seed the superuser before first start.
-6. Starts `pocketbase serve --http=localhost:<port> --dev --dir <tempDir>`.
-7. Polls `GET /api/health` until HTTP 200 (timeout 15s).
-8. Returns a `PocketBase` SDK client authenticated as superuser via `authWithPassword`.
+2. Creates a temp directory (`<tempDir>`). Within it, creates `pb_data/` and symlinks `pb_hooks/` and `pb_migrations/` to the real repo directories (resolved relative to this file's location via `Platform.script`).
+3. Finds a free port.
+4. Runs `pocketbase superuser create admin@test.local testpassword --dir <tempDir>` to seed the superuser before first start (PocketBase initialises `pb_data` on first run).
+5. Starts `pocketbase serve --http=localhost:<port> --dev --dir <tempDir>`. PocketBase uses `<tempDir>/pb_hooks` and `<tempDir>/pb_migrations` automatically because they live inside `--dir`.
+6. Polls `GET /api/health` until HTTP 200 (timeout 15s).
+7. Returns a `PocketBase` SDK client authenticated as superuser via `authWithPassword`.
 
 Public API:
 - `static Future<TestPocketBase> start()` — async factory.
@@ -191,7 +190,9 @@ All test files use `setUpAll` / `tearDownAll` to start/stop `TestPocketBase` and
 
 ### 5.2 Integration Tests (`app/integration_test/`)
 
-Started via `flutter_test_config.dart` (`testExecutable` hook) which boots `TestPocketBase` and `MockHomeAssistantServer`, writes their URLs to shared state, then runs tests. PocketBase URL passed to the app via `--dart-define=POCKETBASE_URL=...`.
+**Important:** integration tests run inside Chrome, where `dart:io` is unavailable. Infrastructure cannot be started from within the tests. Instead, a host-side Dart program `tools/start_test_infra.dart` starts `MockHomeAssistantServer` and `TestPocketBase` on OS-assigned ports, writes port info to a file (`tools/.test_ports`, gitignored), and keeps running until terminated. The Makefile / CI script reads those ports and passes `--dart-define=POCKETBASE_URL=http://localhost:<pbPort>` when invoking `flutter test -d chrome`.
+
+`flutter_test_config.dart` in `integration_test/` is used only for test-level setup that does not require `dart:io` (e.g. binding `IntegrationTestWidgetsFlutterBinding`).
 
 **`auth_flow_test.dart`**
 - App loads → sign-in form shown
@@ -244,28 +245,53 @@ jobs:
       - name: Widget tests (Dart VM)
         run: flutter test
         working-directory: app
+      - name: Start test infra (Chrome integration tests)
+        run: |
+          dart run tools/start_test_infra.dart &
+          echo $! > .test-infra.pid
+          # Poll until the port file is written (max 15s)
+          for i in $(seq 1 30); do
+            [ -f tools/.test_ports ] && break
+            sleep 0.5
+          done
+          cat tools/.test_ports >> $GITHUB_ENV
+        working-directory: app
       - name: Integration tests (Chrome)
         run: |
           flutter test integration_test/ \
             -d chrome \
-            --dart-define=POCKETBASE_URL=placeholder
+            --dart-define=POCKETBASE_URL=$PB_URL
         working-directory: app
-        # Note: POCKETBASE_URL dart-define is overridden at runtime by
-        # flutter_test_config.dart which starts PocketBase dynamically and
-        # passes the actual URL via app re-entry; the placeholder value is
-        # never used.
+      - name: Stop test infra
+        if: always()
+        run: kill $(cat app/.test-infra.pid) || true
 ```
+
+`tools/start_test_infra.dart` starts `MockHomeAssistantServer` and `TestPocketBase`, then writes:
+```
+PB_URL=http://localhost:18432
+HA_URL=http://localhost:19877
+```
+to `tools/.test_ports` before blocking on `stdin` (so it keeps running until the CI step kills its PID).
 
 ### Local development
 
-A `make test` target is added to `Makefile`:
+Three targets are added to `Makefile`:
 ```makefile
-test: ## Run all tests (requires pocketbase binary in tools/ or on PATH)
+install-pb-test: ## Download PocketBase binary for tests
+    # downloads pocketbase 0.28.2 (matching Dockerfile.dev) to tools/pocketbase
+
+test: ## Run widget tests (Dart VM)
     cd app && flutter test
-    cd app && flutter test integration_test/ -d chrome
+
+integration-test: ## Run integration tests (Chrome, requires install-pb-test)
+    # starts tools/start_test_infra.dart in background
+    # reads PB_URL from tools/.test_ports
+    # runs flutter test integration_test/ -d chrome --dart-define=POCKETBASE_URL=$$PB_URL
+    # stops background infra process
 ```
 
-`make install-pb-test` downloads the binary to `tools/pocketbase`, mirroring the CI step. `tools/pocketbase` is added to `.gitignore`.
+`tools/pocketbase` and `tools/.test_ports` are added to `.gitignore`.
 
 ---
 
@@ -296,7 +322,7 @@ app/
     grants_test.dart                 # NEW
     open_door_test.dart              # NEW
   integration_test/
-    flutter_test_config.dart         # NEW: boots infra before all tests
+    flutter_test_config.dart         # NEW: IntegrationTestWidgetsFlutterBinding setup only
     auth_flow_test.dart              # NEW
     admin_flow_test.dart             # NEW
     grants_flow_test.dart            # NEW
@@ -305,8 +331,10 @@ app/
   workflows/
     test.yml                         # NEW
 tools/
-  .gitkeep                           # NEW: dir placeholder
+  .gitkeep                           # NEW: dir placeholder (pocketbase binary and .test_ports are gitignored)
+  start_test_infra.dart              # NEW: host-side program that starts MockHA + PocketBase for Chrome tests
   pocketbase                         # gitignored, downloaded locally/CI
+  .test_ports                        # gitignored, written by start_test_infra.dart
 ```
 
 ---
