@@ -28,9 +28,14 @@ jobs:
 
       - name: Install Chrome and ChromeDriver
         run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-chromedriver
-          echo "CHROMEDRIVER_BINARY=/usr/bin/chromedriver" >> "$GITHUB_ENV"
+          CHROMEDRIVER_PATH=$(which chromedriver 2>/dev/null || true)
+          if [ -z "$CHROMEDRIVER_PATH" ]; then
+            echo "chromedriver not found on PATH, searching common locations..."
+            CHROMEDRIVER_PATH=$(find /usr/local /opt -name chromedriver -type f 2>/dev/null | head -1)
+          fi
+          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
+          "$CHROMEDRIVER_PATH" --version
+          echo "CHROMEDRIVER_BINARY=$CHROMEDRIVER_PATH" >> "$GITHUB_ENV"
 
       - name: Flutter pub get
         run: flutter pub get

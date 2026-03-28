@@ -87,8 +87,12 @@ Future<void> _waitForChromeDriver(Duration timeout) async {
         final response = await request.close().timeout(
           const Duration(seconds: 2),
         );
-        await response.drain<void>();
-        if (response.statusCode == 200) return;
+        final body = await response.transform(utf8.decoder).join();
+        if (response.statusCode == 200) {
+          final json = jsonDecode(body) as Map<String, dynamic>?;
+          final value = json?['value'] as Map<String, dynamic>?;
+          if (value != null && value['ready'] == true) return;
+        }
       } catch (_) {
         // Not ready yet.
       }
