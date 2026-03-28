@@ -1,20 +1,28 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
-import 'package:share_plus/share_plus.dart';
-import 'pb.dart';
+import 'pb_scope.dart';
+import 'services/share_service.dart';
 
 class GrantsSheet extends StatefulWidget {
   final Map<String, dynamic>? lock;
   final VoidCallback onBack;
-  const GrantsSheet({super.key, required this.lock, required this.onBack});
+  final ShareService? shareService;
+
+  const GrantsSheet({
+    super.key,
+    required this.lock,
+    required this.onBack,
+    this.shareService,
+  });
 
   @override
   State<GrantsSheet> createState() => _GrantsSheetState();
 }
 
 class _GrantsSheetState extends State<GrantsSheet> {
-  final _pb = PB.instance;
+  late PocketBase _pb;
+  late ShareService _shareService;
   List<dynamic> _grants = [];
   String? _grantsError;
   bool _loading = true;
@@ -22,6 +30,8 @@ class _GrantsSheetState extends State<GrantsSheet> {
   @override
   void initState() {
     super.initState();
+    _pb = PBScope.of(context);
+    _shareService = widget.shareService ?? RealShareService();
     _fetchGrants();
   }
 
@@ -415,7 +425,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
 
   Future<void> _shareDeeplink(BuildContext context, String deeplink) async {
     try {
-      await Share.share(deeplink);
+      await _shareService.shareText(deeplink);
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: deeplink));
       if (context.mounted) {
