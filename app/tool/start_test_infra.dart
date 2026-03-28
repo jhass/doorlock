@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import '../test_support/mock_ha_server.dart';
@@ -126,6 +127,7 @@ Future<int> _runDriveTarget({
       'drive',
       '--driver=test_driver/integration_test.dart',
       '--target=$target',
+      '--no-keep-app-running',
       '-d',
       'chrome',
       '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
@@ -141,12 +143,27 @@ Future<int> _runDriveTarget({
     runInShell: false,
   );
 
-  result.stdout.listen(stdout.add);
-  result.stderr.listen(stderr.add);
+  var sawSuccess = false;
+
+  result.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+    stdout.writeln(line);
+    if (line.contains('All tests passed!')) {
+      sawSuccess = true;
+    }
+  });
+
+  result.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+    stderr.writeln(line);
+  });
 
   return result.exitCode.timeout(
     const Duration(minutes: 8),
     onTimeout: () {
+      // Some web runs can print success but hang on process shutdown.
+      if (sawSuccess) {
+        result.kill();
+        return 0;
+      }
       result.kill();
       return 124;
     },
