@@ -41,7 +41,7 @@ jobs:
         working-directory: app
 
       - name: Integration tests (Chrome headless)
-        run: dart run tool/start_test_infra.dart
+        run: xvfb-run -a dart run tool/start_test_infra.dart
         working-directory: app
         env:
           POCKETBASE_BINARY: ${{ env.POCKETBASE_BINARY }}
