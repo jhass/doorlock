@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'pb.dart';
 import 'package:pocketbase/pocketbase.dart';
+import 'pb_scope.dart';
 
 class OpenDoorPage extends StatefulWidget {
   final String grantToken;
@@ -23,7 +23,7 @@ class _OpenDoorPageState extends State<OpenDoorPage> {
       _error = null;
     });
     try {
-      await PB.instance.send(
+      await PBScope.of(context).send(
         '/doorlock/locks/${widget.lockToken}/open',
         method: 'POST',
         body: {'token': widget.grantToken},

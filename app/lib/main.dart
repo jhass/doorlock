@@ -3,10 +3,11 @@ import 'package:pocketbase/pocketbase.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'add_home_assistant_page.dart';
+import 'env_config.dart';
 import 'grant_qr_scanner_page.dart';
 import 'home_assistants_page.dart';
 import 'open_door_page.dart';
-import 'pb.dart';
+import 'pb_scope.dart';
 import 'session_storage.dart';
 import 'sign_in_page.dart';
 
@@ -22,22 +23,28 @@ class MyApp extends StatelessWidget {
     final uri = Uri.base;
     final grantToken = uri.queryParameters['grant'];
     if (grantToken != null && grantToken.isNotEmpty) {
-      return MaterialApp(
+      return PBScope(
+        pb: PocketBase(EnvConfig.pocketBaseUrl),
+        child: MaterialApp(
+          title: 'Doorlock app',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          ),
+          home: _GrantFlow(grantToken: grantToken),
+        ),
+      );
+    }
+
+    return PBScope(
+      pb: PocketBase(EnvConfig.pocketBaseUrl),
+      child: MaterialApp(
         title: 'Doorlock app',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),
-        home: _GrantFlow(grantToken: grantToken),
-      );
-    }
-
-    return MaterialApp(
-      title: 'Doorlock app',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: AuthGate(
-        builder: (context) => HomeAssistantsPageWrapper(),
+        home: AuthGate(
+          builder: (context) => HomeAssistantsPageWrapper(),
+        ),
       ),
     );
   }
@@ -85,18 +92,20 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _initAuthStore() async {
+    final pb = PBScope.of(context);
     final session = await SessionStorage.loadSession();
     if (session != null && session['token'] != null) {
-      PB.instance.authStore.save(session['token'] as String, null);
+      pb.authStore.save(session['token'] as String, null);
     }
     setState(() { _loading = false; });
   }
 
   Future<void> _signIn(String username, String password) async {
+    final pb = PBScope.of(context);
     setState(() { _loading = true; _error = null; });
     try {
-      await PB.instance.collection('doorlock_users').authWithPassword(username, password);
-      await SessionStorage.saveSession({'token': PB.instance.authStore.token});
+      await pb.collection('doorlock_users').authWithPassword(username, password);
+      await SessionStorage.saveSession({'token': pb.authStore.token});
       setState(() { _loading = false; });
     } on ClientException catch (e) {
       setState(() {
@@ -113,10 +122,11 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    final pb = PBScope.of(context);
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (!PB.instance.authStore.isValid) {
+    if (!pb.authStore.isValid) {
       return SignInPage(onSignIn: _signIn, error: _error);
     }
     return widget.builder(context);
@@ -143,9 +153,10 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
   }
 
   Future<void> _fetchAssistants() async {
+    final pb = PBScope.of(context);
     setState(() { _loading = true; _error = null; });
     try {
-      final result = await PB.instance.collection('doorlock_homeassistants').getFullList();
+      final result = await pb.collection('doorlock_homeassistants').getFullList();
       setState(() {
         _assistants = result.map((r) => r.toJson()).toList();
         _loading = false;
@@ -170,9 +181,10 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
   }
 
   Future<void> _addHomeAssistant(String url, String frontendCallback) async {
+    final pb = PBScope.of(context);
     setState(() { _addError = null; });
     try {
-      final resp = await PB.instance.send(
+      final resp = await pb.send(
         '/doorlock/homeassistant',
         method: 'POST',
         body: {
@@ -226,8 +238,9 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
     return HomeAssistantsPage(
       assistants: _assistants,
       onSignOut: () async {
+        final pb = PBScope.of(context);
         await SessionStorage.clearSession();
-        PB.instance.authStore.clear();
+        pb.authStore.clear();
         Navigator.of(context).pushReplacementNamed('/');
       },
       onAdd: _showAddPage,
