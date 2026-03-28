@@ -1,4 +1,5 @@
 import 'package:doorlock/main.dart';
+import 'package:doorlock/session_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -9,6 +10,10 @@ void main() {
   const userEmail = String.fromEnvironment('TEST_USER_EMAIL');
   const userPassword = String.fromEnvironment('TEST_USER_PASSWORD');
   const haUrl = String.fromEnvironment('TEST_HA_URL');
+
+  setUp(() async {
+    await SessionStorage.clearSession();
+  });
 
   testWidgets('navigates into locks page and sees HA entity list on Add Lock', (
     tester,

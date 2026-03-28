@@ -143,12 +143,29 @@ Future<int> _runDriveTarget({
     runInShell: false,
   );
 
+  final earlyExit = Completer<int>();
   var sawSuccess = false;
+  var sawFailure = false;
 
   result.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
     stdout.writeln(line);
     if (line.contains('All tests passed!')) {
       sawSuccess = true;
+      // In CI web runs, flutter drive can hang after reporting success.
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        if (earlyExit.isCompleted) {
+          return;
+        }
+        result.kill();
+        earlyExit.complete(0);
+      });
+    }
+    if (line.contains('Some tests failed.')) {
+      sawFailure = true;
+      if (!earlyExit.isCompleted) {
+        result.kill();
+        earlyExit.complete(1);
+      }
     }
   });
 
@@ -156,13 +173,17 @@ Future<int> _runDriveTarget({
     stderr.writeln(line);
   });
 
-  return result.exitCode.timeout(
+  return Future.any([result.exitCode, earlyExit.future]).timeout(
     const Duration(minutes: 8),
     onTimeout: () {
       // Some web runs can print success but hang on process shutdown.
       if (sawSuccess) {
         result.kill();
         return 0;
+      }
+      if (sawFailure) {
+        result.kill();
+        return 1;
       }
       result.kill();
       return 124;
