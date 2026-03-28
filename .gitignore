@@ -1,1 +1,7 @@
 /pb_data
+/.worktrees
+
+# Test tooling
+tools/pocketbase
+tools/.test_ports
+app/tool/.test_ports

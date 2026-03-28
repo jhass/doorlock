@@ -1,21 +1,30 @@
-import 'dart:js_util' as js_util;
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'pb.dart';
 import 'grants_sheet.dart';
+import 'pb_scope.dart';
+import 'services/window_service.dart';
+import 'services/window_service_platform.dart';
 
 class LocksPage extends StatefulWidget {
   final String homeAssistantId;
   final String homeAssistantUrl;
-  const LocksPage({super.key, required this.homeAssistantId, required this.homeAssistantUrl});
+  final WindowService? windowService;
+
+  const LocksPage({
+    super.key,
+    required this.homeAssistantId,
+    required this.homeAssistantUrl,
+    this.windowService,
+  });
 
   @override
   State<LocksPage> createState() => _LocksPageState();
 }
 
 class _LocksPageState extends State<LocksPage> {
-  final _pb = PB.instance;
+  late PocketBase _pb;
+  late WindowService _windowService;
   bool _loading = true;
   List<dynamic> _locks = [];
   String? _error;
@@ -28,6 +37,8 @@ class _LocksPageState extends State<LocksPage> {
   @override
   void initState() {
     super.initState();
+    _pb = PBScope.of(context);
+    _windowService = widget.windowService ?? DefaultWindowService();
     _fetchLocks();
   }
 
@@ -169,8 +180,7 @@ class _LocksPageState extends State<LocksPage> {
                   </body>
                   </html>
                 ''';
-                final encoded = Uri.encodeComponent(qrHtml);
-                windowOpenHtmlContent(encoded);
+                _windowService.openHtmlContent(qrHtml);
               },
               child: const Text('Print'),
             ),
@@ -242,12 +252,4 @@ class _LocksPageState extends State<LocksPage> {
                 ),
     );
   }
-}
-
-// Helper for opening HTML content in a new window (Flutter web, no dart:html)
-void windowOpenHtmlContent(String encodedHtml) {
-  // Use JS interop to open a new window and write the HTML content (Flutter web only, no dart:html)
-  // Fix: properly escape single quotes in the JS string to avoid syntax errors
-  final js = "var w = window.open(); w.document.write(decodeURIComponent('${encodedHtml.replaceAll("'", "\\'")}')); w.document.close();";
-  js_util.callMethod(js_util.globalThis, 'eval', [js]);
 }

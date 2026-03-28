@@ -1,0 +1,54 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Download PocketBase 0.28.2
+        run: |
+          curl -L \
+            "https://github.com/pocketbase/pocketbase/releases/download/v0.28.2/pocketbase_0.28.2_linux_amd64.zip" \
+            -o pb.zip
+          unzip pb.zip -d tools/
+          chmod +x tools/pocketbase
+          echo "POCKETBASE_BINARY=$PWD/tools/pocketbase" >> "$GITHUB_ENV"
+
+      - name: Install Chrome and ChromeDriver
+        run: |
+          CHROMEDRIVER_PATH=$(which chromedriver 2>/dev/null || true)
+          if [ -z "$CHROMEDRIVER_PATH" ]; then
+            echo "chromedriver not found on PATH, searching common locations..."
+            CHROMEDRIVER_PATH=$(find /usr/local /opt -name chromedriver -type f 2>/dev/null | head -1)
+          fi
+          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
+          "$CHROMEDRIVER_PATH" --version
+          echo "CHROMEDRIVER_BINARY=$CHROMEDRIVER_PATH" >> "$GITHUB_ENV"
+
+      - name: Flutter pub get
+        run: flutter pub get
+        working-directory: app
+
+      - name: Widget tests (Dart VM)
+        run: flutter test --reporter expanded
+        working-directory: app
+
+      - name: Integration tests (Chrome headless)
+        run: xvfb-run -a dart run tool/start_test_infra.dart
+        working-directory: app
+        env:
+          POCKETBASE_BINARY: ${{ env.POCKETBASE_BINARY }}
+          CHROME_EXECUTABLE: google-chrome
+          CHROMEDRIVER_BINARY: ${{ env.CHROMEDRIVER_BINARY }}
