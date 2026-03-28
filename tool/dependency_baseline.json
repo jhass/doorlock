@@ -1,0 +1,18 @@
+{
+  "flutter": {
+    "version": "3.41.6",
+    "dart": "3.11.4",
+    "docker_image": "ghcr.io/cirruslabs/flutter:3.41.6"
+  },
+  "pocketbase": {
+    "version": "0.36.8",
+    "linux_amd64_zip": "https://github.com/pocketbase/pocketbase/releases/download/v0.36.8/pocketbase_0.36.8_linux_amd64.zip"
+  },
+  "chrome_for_testing": {
+    "version": "147.0.7727.24"
+  },
+  "github_actions": {
+    "checkout": "actions/checkout@v4",
+    "flutter_action": "subosito/flutter-action@v2"
+  }
+}
