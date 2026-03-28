@@ -7,23 +7,34 @@ Built for my personal needs, if you want to deploy this you're on your own.
 
 The entire frontend is vibe coded, sorry...
 
-## Development Setup
+## Local Testing
 
-For local development with hot reload capabilities:
+Run the full local test suite in Docker:
 
 ```bash
-# Quick setup with Make
-make dev-setup      # Start PocketBase backend
-make dev-start      # Start frontend development
-
-# Or use scripts directly
-./scripts/setup-dev.sh
-./scripts/start-frontend.sh
+make test
 ```
 
-Available commands: `make help`
+Run in fail-fast mode (stop on the first failing stage):
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development instructions.
+```bash
+make test TEST_FAIL_FAST=1
+```
+
+By default local tests run in an `linux/amd64` container so Chrome integration
+tests are consistent on both Intel and Apple Silicon hosts. Override with:
+
+```bash
+make test TEST_PLATFORM=linux/arm64
+```
+
+Stage order and meaning:
+
+1. `flutter pub get`: resolves and installs Dart/Flutter dependencies inside the test container.
+2. Widget tests: runs the Flutter unit/widget test suite.
+3. Integration tests: starts local test infrastructure and executes integration flows.
+
+Default behavior runs all stages and prints a final summary, even if one stage fails.
 
 ## Production Setup
 

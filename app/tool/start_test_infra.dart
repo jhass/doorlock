@@ -193,10 +193,9 @@ Future<int> _runDriveTarget({
     }
   });
 
-  result.stderr
-      .transform(utf8.decoder)
-      .transform(const LineSplitter())
-      .listen((line) {
+  result.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((
+    line,
+  ) {
     stderr.writeln(line);
   });
 
@@ -239,8 +238,7 @@ Future<void> _deleteWebDriverSessions() async {
         final del = await client
             .deleteUrl(Uri.parse('http://localhost:4444/session/$id'))
             .timeout(const Duration(seconds: 5));
-        final delResp =
-            await del.close().timeout(const Duration(seconds: 10));
+        final delResp = await del.close().timeout(const Duration(seconds: 10));
         await delResp.drain<void>();
         print('[infra] Closed WebDriver session $id');
       } catch (_) {}
