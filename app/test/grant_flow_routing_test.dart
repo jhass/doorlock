@@ -34,7 +34,7 @@ void main() {
 
     expect(decision, isA<NoScanRouteDecision>());
     expect((decision as NoScanRouteDecision).grantToken, grant);
-    expect((decision as NoScanRouteDecision).lockToken, lock);
+    expect((decision).lockToken, lock);
   });
 
   test('returns invalid decision for malformed typed payload', () {

@@ -19,7 +19,7 @@ void main() {
 
     expect(payload, isA<NoScanPayload>());
     expect((payload as NoScanPayload).grantToken, grant);
-    expect((payload as NoScanPayload).lockToken, lock);
+    expect((payload).lockToken, lock);
   });
 
   test('throws on malformed base64url payload', () {

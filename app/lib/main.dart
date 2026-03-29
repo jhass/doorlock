@@ -38,6 +38,65 @@ class InvalidGrantRouteDecision extends GrantRouteDecision {
   const InvalidGrantRouteDecision();
 }
 
+const String githubRepoUrl = 'https://github.com/jhass/doorlock';
+const String _buildCommit = String.fromEnvironment('BUILD_COMMIT');
+
+String shortBuildCommit(String commit) {
+  final trimmed = commit.trim();
+  if (trimmed.isEmpty) return 'dev';
+  return trimmed.length <= 7 ? trimmed : trimmed.substring(0, 7);
+}
+
+Future<void> _openGitHubRepo() async {
+  final uri = Uri.parse(githubRepoUrl);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+Widget globalAppBuilder(BuildContext context, Widget? child) {
+  return Column(
+    children: [
+      Expanded(child: child ?? const SizedBox.shrink()),
+      const _BuildFooter(),
+    ],
+  );
+}
+
+class _BuildFooter extends StatelessWidget {
+  const _BuildFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.dividerColor)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 4,
+        children: [
+          TextButton(
+            onPressed: () async {
+              await _openGitHubRepo();
+            },
+            child: const Text('GitHub'),
+          ),
+          Text(
+            'Build ${shortBuildCommit(_buildCommit)}',
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 GrantRouteDecision resolveGrantRoute(String? encodedGrant) {
   if (encodedGrant == null) {
     return const NoGrantRouteDecision();
@@ -75,6 +134,7 @@ class MyApp extends StatelessWidget {
         pb: PocketBase(EnvConfig.pocketBaseUrl),
         child: MaterialApp(
           title: 'Doorlock app',
+          builder: globalAppBuilder,
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           ),
@@ -87,6 +147,7 @@ class MyApp extends StatelessWidget {
       pb: PocketBase(EnvConfig.pocketBaseUrl),
       child: MaterialApp(
         title: 'Doorlock app',
+        builder: globalAppBuilder,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),

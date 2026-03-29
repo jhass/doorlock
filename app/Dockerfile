@@ -4,7 +4,8 @@
 FROM --platform=linux/amd64 ghcr.io/cirruslabs/flutter:3.41.6 AS build
 WORKDIR /app
 COPY . .
-RUN flutter pub get && flutter build web --release
+ARG BUILD_COMMIT=dev
+RUN flutter pub get && flutter build web --release --dart-define=BUILD_COMMIT=${BUILD_COMMIT}
 
 # Runtime stage
 FROM nginx:alpine
