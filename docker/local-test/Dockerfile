@@ -1,4 +1,7 @@
-FROM ghcr.io/cirruslabs/flutter:stable
+FROM ghcr.io/cirruslabs/flutter:3.41.6
+
+ARG CFT_VERSION=147.0.7727.24
+ARG PB_VERSION=0.36.8
 
 WORKDIR /workspace
 
@@ -18,8 +21,7 @@ RUN apt-get update \
 # Install Chrome for Testing and the matching ChromeDriver.
 # Ubuntu's chromium/chromedriver packages in this image are snap wrappers,
 # which fail in containers without snapd.
-RUN CFT_VERSION="$(curl -fsSL https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE)" \
-    && curl -fsSL "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/linux64/chrome-linux64.zip" -o /tmp/chrome.zip \
+RUN curl -fsSL "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/linux64/chrome-linux64.zip" -o /tmp/chrome.zip \
     && curl -fsSL "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/linux64/chromedriver-linux64.zip" -o /tmp/chromedriver.zip \
     && unzip /tmp/chrome.zip -d /opt \
     && unzip /tmp/chromedriver.zip -d /opt \
@@ -34,7 +36,7 @@ ENV CHROMEDRIVER_BINARY=/usr/local/bin/chromedriver
 # Download and install PocketBase 0.28.2 to /usr/local/bin.
 # Placed before COPY to cache stable dependency layer.
 RUN curl -L \
-    "https://github.com/pocketbase/pocketbase/releases/download/v0.28.2/pocketbase_0.28.2_linux_amd64.zip" \
+    "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip" \
     -o /tmp/pb.zip \
     && unzip /tmp/pb.zip pocketbase -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/pocketbase \
