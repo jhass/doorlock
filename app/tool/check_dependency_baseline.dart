@@ -11,6 +11,7 @@ void main() {
   final flutter = baseline['flutter'] as Map<String, dynamic>;
   final pocketbase = baseline['pocketbase'] as Map<String, dynamic>;
   final chrome = baseline['chrome_for_testing'] as Map<String, dynamic>;
+  final githubActions = baseline['github_actions'] as Map<String, dynamic>;
 
   final expected = <String, List<String>>{
     '${repoRoot.path}/app/Dockerfile': [flutter['docker_image'] as String],
@@ -24,10 +25,14 @@ void main() {
       'ARG CFT_VERSION=${chrome['version']}',
     ],
     '${repoRoot.path}/.github/workflows/test.yml': [
+      githubActions['checkout'] as String,
+      githubActions['flutter_action'] as String,
       "flutter-version: '${flutter['version']}'",
       pocketbase['linux_amd64_zip'] as String,
     ],
     '${repoRoot.path}/.github/workflows/copilot-setup-steps.yml': [
+      githubActions['checkout'] as String,
+      githubActions['flutter_action'] as String,
       "flutter-version: '${flutter['version']}'",
     ],
   };
