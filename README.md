@@ -9,6 +9,15 @@ The entire frontend is vibe coded, sorry...
 
 ## Local Testing
 
+Pinned dependency versions are tracked in `tool/dependency_baseline.json` and
+consumed by local test infrastructure (`docker/local-test/Dockerfile`) plus CI.
+Before changing pinned versions, update the baseline file first, then align the
+runtime files and verify with:
+
+```bash
+cd app && flutter test test/tool/check_dependency_baseline_test.dart -r expanded
+```
+
 Run the full local test suite in Docker:
 
 ```bash
@@ -27,6 +36,10 @@ tests are consistent on both Intel and Apple Silicon hosts. Override with:
 ```bash
 make test TEST_PLATFORM=linux/arm64
 ```
+
+Integration tests require Chrome and ChromeDriver major versions to match.
+The pinned Chrome for Testing version in `tool/dependency_baseline.json` must
+stay compatible with the ChromeDriver bundled by `docker/local-test/Dockerfile`.
 
 Stage order and meaning:
 
