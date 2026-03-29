@@ -14,6 +14,10 @@ void main() {
 
   final expected = <String, List<String>>{
     '${repoRoot.path}/app/Dockerfile': [flutter['docker_image'] as String],
+    '${repoRoot.path}/Dockerfile.dev': [
+      'ARG PB_VERSION=${pocketbase['version']}',
+      pocketbase['linux_amd64_zip'] as String,
+    ],
     '${repoRoot.path}/docker/local-test/Dockerfile': [
       flutter['docker_image'] as String,
       'ARG PB_VERSION=${pocketbase['version']}',
