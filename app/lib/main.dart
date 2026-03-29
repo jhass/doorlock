@@ -4,12 +4,61 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'add_home_assistant_page.dart';
 import 'env_config.dart';
+import 'grant_token_encoder.dart';
 import 'grant_qr_scanner_page.dart';
 import 'home_assistants_page.dart';
+import 'invalid_link_page.dart';
 import 'open_door_page.dart';
 import 'pb_scope.dart';
 import 'session_storage.dart';
 import 'sign_in_page.dart';
+
+sealed class GrantRouteDecision {
+  const GrantRouteDecision();
+}
+
+class NoGrantRouteDecision extends GrantRouteDecision {
+  const NoGrantRouteDecision();
+}
+
+class ScanRequiredRouteDecision extends GrantRouteDecision {
+  const ScanRequiredRouteDecision({required this.grantToken});
+
+  final String grantToken;
+}
+
+class NoScanRouteDecision extends GrantRouteDecision {
+  const NoScanRouteDecision({required this.grantToken, required this.lockToken});
+
+  final String grantToken;
+  final String lockToken;
+}
+
+class InvalidGrantRouteDecision extends GrantRouteDecision {
+  const InvalidGrantRouteDecision();
+}
+
+GrantRouteDecision resolveGrantRoute(String? encodedGrant) {
+  if (encodedGrant == null) {
+    return const NoGrantRouteDecision();
+  }
+
+  try {
+    final payload = GrantTokenEncoder.decode(encodedGrant);
+    if (payload is ScanRequiredPayload) {
+      return ScanRequiredRouteDecision(grantToken: payload.grantToken);
+    }
+    if (payload is NoScanPayload) {
+      return NoScanRouteDecision(
+        grantToken: payload.grantToken,
+        lockToken: payload.lockToken,
+      );
+    }
+    return const InvalidGrantRouteDecision();
+  } on FormatException {
+    return const InvalidGrantRouteDecision();
+  }
+}
 
 void main() {
   runApp(const MyApp());
@@ -20,9 +69,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uri = Uri.base;
-    final grantToken = uri.queryParameters['grant'];
-    if (grantToken != null && grantToken.isNotEmpty) {
+    final grantRouteDecision = resolveGrantRoute(Uri.base.queryParameters['grant']);
+    if (grantRouteDecision is! NoGrantRouteDecision) {
       return PBScope(
         pb: PocketBase(EnvConfig.pocketBaseUrl),
         child: MaterialApp(
@@ -30,7 +78,7 @@ class MyApp extends StatelessWidget {
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           ),
-          home: _GrantFlow(grantToken: grantToken),
+          home: GrantFlow(decision: grantRouteDecision),
         ),
       );
     }
@@ -50,14 +98,40 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class _GrantFlow extends StatefulWidget {
-  final String grantToken;
-  const _GrantFlow({required this.grantToken});
+class GrantFlow extends StatelessWidget {
+  const GrantFlow({super.key, required this.decision});
+
+  final GrantRouteDecision decision;
+
   @override
-  State<_GrantFlow> createState() => _GrantFlowState();
+  Widget build(BuildContext context) {
+    if (decision is ScanRequiredRouteDecision) {
+      final scanDecision = decision as ScanRequiredRouteDecision;
+      return _ScanRequiredGrantFlow(grantToken: scanDecision.grantToken);
+    }
+
+    if (decision is NoScanRouteDecision) {
+      final noScanDecision = decision as NoScanRouteDecision;
+      return OpenDoorPage(
+        grantToken: noScanDecision.grantToken,
+        lockToken: noScanDecision.lockToken,
+      );
+    }
+
+    return const InvalidLinkPage();
+  }
 }
 
-class _GrantFlowState extends State<_GrantFlow> {
+class _ScanRequiredGrantFlow extends StatefulWidget {
+  const _ScanRequiredGrantFlow({required this.grantToken});
+
+  final String grantToken;
+
+  @override
+  State<_ScanRequiredGrantFlow> createState() => _ScanRequiredGrantFlowState();
+}
+
+class _ScanRequiredGrantFlowState extends State<_ScanRequiredGrantFlow> {
   String? _lockToken;
 
   @override

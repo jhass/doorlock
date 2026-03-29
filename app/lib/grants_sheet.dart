@@ -1,6 +1,6 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
+import 'grant_share_sheet.dart';
 import 'pb_scope.dart';
 import 'services/share_service.dart';
 
@@ -41,9 +41,9 @@ class _GrantsSheetState extends State<GrantsSheet> {
       _grantsError = null;
     });
     try {
-      final result = await _pb.collection('doorlock_grants').getFullList(
-        filter: 'lock = "${widget.lock?['id']}"',
-      );
+      final result = await _pb
+          .collection('doorlock_grants')
+          .getFullList(filter: 'lock = "${widget.lock?['id']}"');
       setState(() {
         _grants = result.map((r) => r.toJson()).toList();
         _loading = false;
@@ -79,7 +79,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
     String formatDateTime(DateTime? dt) {
       if (dt == null) return '';
       return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-             '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
 
     showModalBottomSheet(
@@ -91,7 +91,9 @@ class _GrantsSheetState extends State<GrantsSheet> {
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 16, right: 16, top: 24,
+                left: 16,
+                right: 16,
+                top: 24,
               ),
               child: Form(
                 key: formKey,
@@ -99,14 +101,19 @@ class _GrantsSheetState extends State<GrantsSheet> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Create Grant', style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        'Create Grant',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 16),
                       TextFormField(
                         decoration: const InputDecoration(
                           labelText: 'Name',
                           hintText: 'Grant name',
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Name required' : null,
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Name required'
+                            : null,
                         onChanged: (val) => name = val,
                       ),
                       const SizedBox(height: 8),
@@ -131,11 +138,19 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
-                              initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
+                              initialTime: TimeOfDay.fromDateTime(
+                                notBefore ?? now,
+                              ),
                             );
                             if (time != null) {
                               // Combine picked date and time as local, then convert to UTC for storage
-                              final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+                              final local = DateTime(
+                                picked.year,
+                                picked.month,
+                                picked.day,
+                                time.hour,
+                                time.minute,
+                              );
                               setModalState(() {
                                 notBefore = local;
                               });
@@ -169,10 +184,18 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
-                              initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
+                              initialTime: TimeOfDay.fromDateTime(
+                                notAfter ?? now,
+                              ),
                             );
                             if (time != null) {
-                              final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+                              final local = DateTime(
+                                picked.year,
+                                picked.month,
+                                picked.day,
+                                time.hour,
+                                time.minute,
+                              );
                               setModalState(() {
                                 notAfter = local;
                               });
@@ -205,18 +228,28 @@ class _GrantsSheetState extends State<GrantsSheet> {
                         onPressed: submitting
                             ? null
                             : () async {
-                                if (!formKey.currentState!.validate()) return;
-                                if (notBefore == null || notAfter == null) return;
+                                if (!formKey.currentState!.validate()) {
+                                  return;
+                                }
+                                if (notBefore == null || notAfter == null) {
+                                  return;
+                                }
                                 setModalState(() => submitting = true);
                                 try {
                                   final body = {
-                                    'not_before': notBefore!.toUtc().toIso8601String(),
-                                    'not_after': notAfter!.toUtc().toIso8601String(),
+                                    'not_before': notBefore!
+                                        .toUtc()
+                                        .toIso8601String(),
+                                    'not_after': notAfter!
+                                        .toUtc()
+                                        .toIso8601String(),
                                     'lock': widget.lock?['id'],
                                     'usage_limit': usageLimit ?? -1,
                                     'name': name,
                                   };
-                                  await _pb.collection('doorlock_grants').create(body: body);
+                                  await _pb
+                                      .collection('doorlock_grants')
+                                      .create(body: body);
                                   if (context.mounted) {
                                     Navigator.of(context).pop();
                                     await _fetchGrants();
@@ -233,7 +266,9 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                   });
                                 }
                               },
-                        child: submitting ? const CircularProgressIndicator() : const Text('Create'),
+                        child: submitting
+                            ? const CircularProgressIndicator()
+                            : const Text('Create'),
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -249,8 +284,12 @@ class _GrantsSheetState extends State<GrantsSheet> {
 
   void _showEditGrantForm(BuildContext context, Map<String, dynamic> grant) {
     final formKey = GlobalKey<FormState>();
-    DateTime? notBefore = grant['not_before'] != null ? DateTime.tryParse(grant['not_before']) : null;
-    DateTime? notAfter = grant['not_after'] != null ? DateTime.tryParse(grant['not_after']) : null;
+    DateTime? notBefore = grant['not_before'] != null
+        ? DateTime.tryParse(grant['not_before'])
+        : null;
+    DateTime? notAfter = grant['not_after'] != null
+        ? DateTime.tryParse(grant['not_after'])
+        : null;
     int? usageLimit = grant['usage_limit'] == -1 ? null : grant['usage_limit'];
     String? error;
     bool submitting = false;
@@ -259,7 +298,7 @@ class _GrantsSheetState extends State<GrantsSheet> {
     String formatDateTime(DateTime? dt) {
       if (dt == null) return '';
       return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-             '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
 
     showModalBottomSheet(
@@ -271,7 +310,9 @@ class _GrantsSheetState extends State<GrantsSheet> {
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 16, right: 16, top: 24,
+                left: 16,
+                right: 16,
+                top: 24,
               ),
               child: Form(
                 key: formKey,
@@ -279,7 +320,10 @@ class _GrantsSheetState extends State<GrantsSheet> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Edit Grant', style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        'Edit Grant',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 16),
                       TextFormField(
                         decoration: const InputDecoration(
@@ -287,7 +331,9 @@ class _GrantsSheetState extends State<GrantsSheet> {
                           hintText: 'Grant name',
                         ),
                         initialValue: grant['name'] ?? '',
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Name required' : null,
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Name required'
+                            : null,
                         onChanged: (val) => name = val,
                       ),
                       const SizedBox(height: 8),
@@ -312,10 +358,18 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
-                              initialTime: TimeOfDay.fromDateTime(notBefore ?? now),
+                              initialTime: TimeOfDay.fromDateTime(
+                                notBefore ?? now,
+                              ),
                             );
                             if (time != null) {
-                              final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+                              final local = DateTime(
+                                picked.year,
+                                picked.month,
+                                picked.day,
+                                time.hour,
+                                time.minute,
+                              );
                               setModalState(() {
                                 notBefore = local;
                               });
@@ -349,10 +403,18 @@ class _GrantsSheetState extends State<GrantsSheet> {
                             if (!context.mounted) return;
                             final time = await showTimePicker(
                               context: context,
-                              initialTime: TimeOfDay.fromDateTime(notAfter ?? now),
+                              initialTime: TimeOfDay.fromDateTime(
+                                notAfter ?? now,
+                              ),
                             );
                             if (time != null) {
-                              final local = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+                              final local = DateTime(
+                                picked.year,
+                                picked.month,
+                                picked.day,
+                                time.hour,
+                                time.minute,
+                              );
                               setModalState(() {
                                 notAfter = local;
                               });
@@ -386,17 +448,27 @@ class _GrantsSheetState extends State<GrantsSheet> {
                         onPressed: submitting
                             ? null
                             : () async {
-                                if (!formKey.currentState!.validate()) return;
-                                if (notBefore == null || notAfter == null) return;
+                                if (!formKey.currentState!.validate()) {
+                                  return;
+                                }
+                                if (notBefore == null || notAfter == null) {
+                                  return;
+                                }
                                 setModalState(() => submitting = true);
                                 try {
                                   final body = {
-                                    'not_before': notBefore!.toUtc().toIso8601String(),
-                                    'not_after': notAfter!.toUtc().toIso8601String(),
+                                    'not_before': notBefore!
+                                        .toUtc()
+                                        .toIso8601String(),
+                                    'not_after': notAfter!
+                                        .toUtc()
+                                        .toIso8601String(),
                                     'usage_limit': usageLimit ?? -1,
                                     'name': name,
                                   };
-                                  await _pb.collection('doorlock_grants').update(grant['id'], body: body);
+                                  await _pb
+                                      .collection('doorlock_grants')
+                                      .update(grant['id'], body: body);
                                   if (context.mounted) {
                                     Navigator.of(context).pop();
                                     await _fetchGrants();
@@ -413,7 +485,9 @@ class _GrantsSheetState extends State<GrantsSheet> {
                                   });
                                 }
                               },
-                        child: submitting ? const CircularProgressIndicator() : const Text('Save'),
+                        child: submitting
+                            ? const CircularProgressIndicator()
+                            : const Text('Save'),
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -427,25 +501,14 @@ class _GrantsSheetState extends State<GrantsSheet> {
     );
   }
 
-  Future<void> _shareDeeplink(BuildContext context, String deeplink) async {
-    try {
-      await _shareService.shareText(deeplink);
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: deeplink));
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Deeplink copied to clipboard')),
-        );
-      }
-    }
-  }
-
   void _deleteGrant(BuildContext context, Map<String, dynamic> grant) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Grant'),
-        content: Text('Are you sure you want to delete grant "${grant['name'] ?? 'Unnamed grant'}"?'),
+        content: Text(
+          'Are you sure you want to delete grant "${grant['name'] ?? 'Unnamed grant'}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -464,15 +527,15 @@ class _GrantsSheetState extends State<GrantsSheet> {
         await _pb.collection('doorlock_grants').delete(grant['id']);
         await _fetchGrants();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Grant deleted')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Grant deleted')));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete grant: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to delete grant: $e')));
         }
       }
     }
@@ -483,7 +546,9 @@ class _GrantsSheetState extends State<GrantsSheet> {
     final lock = widget.lock;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Grants for ${lock?['name'] ?? lock?['entity_id'] ?? 'Unknown lock'}'),
+        title: Text(
+          'Grants for ${lock?['name'] ?? lock?['entity_id'] ?? 'Unknown lock'}',
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBack,
@@ -497,58 +562,104 @@ class _GrantsSheetState extends State<GrantsSheet> {
         ],
       ),
       body: _grantsError != null
-          ? Center(child: Text(_grantsError!, style: const TextStyle(color: Colors.red)))
+          ? Center(
+              child: Text(
+                _grantsError!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            )
           : _loading
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  itemCount: _grants.length,
-                  itemBuilder: (context, index) {
-                    final grant = _grants[index];
-                    final deeplink = Uri.base.replace(queryParameters: {'grant': grant['token']}).toString();
-                    final notBefore = grant['not_before'] != null ? DateTime.tryParse(grant['not_before']) : null;
-                    final notAfter = grant['not_after'] != null ? DateTime.tryParse(grant['not_after']) : null;
-                    final usageLimit = grant['usage_limit'];
-                    return ListTile(
-                      title: Text(grant['name'] ?? 'Unnamed grant', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              itemCount: _grants.length,
+              itemBuilder: (context, index) {
+                final grant = _grants[index];
+                final notBefore = grant['not_before'] != null
+                    ? DateTime.tryParse(grant['not_before'])
+                    : null;
+                final notAfter = grant['not_after'] != null
+                    ? DateTime.tryParse(grant['not_after'])
+                    : null;
+                final usageLimit = grant['usage_limit'];
+                return ListTile(
+                  title: Text(
+                    grant['name'] ?? 'Unnamed grant',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              if (notBefore != null)
-                                Text('From: ${notBefore.toLocal().toString().substring(0, 16)}', style: const TextStyle(fontSize: 13)),
-                              const SizedBox(width: 8),
-                              if (notAfter != null)
-                                Text('Until: ${notAfter.toLocal().toString().substring(0, 16)}', style: const TextStyle(fontSize: 13)),
-                            ],
-                          ),
-                          if (usageLimit == -1)
-                            const Text('Usage: unlimited', style: TextStyle(fontSize: 13))
-                          else if (usageLimit != null)
-                            Text('Usage limit: $usageLimit', style: const TextStyle(fontSize: 13)),
+                          if (notBefore != null)
+                            Text(
+                              'From: ${notBefore.toLocal().toString().substring(0, 16)}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          const SizedBox(width: 8),
+                          if (notAfter != null)
+                            Text(
+                              'Until: ${notAfter.toLocal().toString().substring(0, 16)}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
                         ],
                       ),
-                      onTap: () => _showEditGrantForm(context, grant),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.share),
-                            tooltip: 'Share Deeplink',
-                            onPressed: () async {
-                              await _shareDeeplink(context, deeplink);
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            tooltip: 'Delete Grant',
-                            onPressed: () => _deleteGrant(context, grant),
-                          ),
-                        ],
+                      if (usageLimit == -1)
+                        const Text(
+                          'Usage: unlimited',
+                          style: TextStyle(fontSize: 13),
+                        )
+                      else if (usageLimit != null)
+                        Text(
+                          'Usage limit: $usageLimit',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                    ],
+                  ),
+                  onTap: () => _showEditGrantForm(context, grant),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.share),
+                        tooltip: 'Share Deeplink',
+                        onPressed: () async {
+                          final lockToken =
+                              widget.lock?['identification_token'];
+                          if (lockToken is! String || lockToken.isEmpty) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Unable to share this grant for remote open.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+
+                          await showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (_) => GrantShareSheet(
+                              shareService: _shareService,
+                              grantToken: grant['token'] as String,
+                              lockToken: lockToken,
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        tooltip: 'Delete Grant',
+                        onPressed: () => _deleteGrant(context, grant),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
