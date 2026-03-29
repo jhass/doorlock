@@ -33,7 +33,7 @@ RUN curl -fsSL "https://storage.googleapis.com/chrome-for-testing-public/${CFT_V
 ENV CHROME_EXECUTABLE=/usr/local/bin/google-chrome
 ENV CHROMEDRIVER_BINARY=/usr/local/bin/chromedriver
 
-# Download and install PocketBase 0.28.2 to /usr/local/bin.
+# Download and install PocketBase ${PB_VERSION} to /usr/local/bin.
 # Placed before COPY to cache stable dependency layer.
 RUN curl -L \
     "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip" \
