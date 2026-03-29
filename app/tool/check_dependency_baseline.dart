@@ -16,7 +16,7 @@ void main() {
     '${repoRoot.path}/app/Dockerfile': [flutter['docker_image'] as String],
     '${repoRoot.path}/Dockerfile.dev': [
       'ARG PB_VERSION=${pocketbase['version']}',
-      pocketbase['linux_amd64_zip'] as String,
+      r'download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip',
     ],
     '${repoRoot.path}/docker/local-test/Dockerfile': [
       flutter['docker_image'] as String,
