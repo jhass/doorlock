@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'browser_tooling.dart';
 import '../test_support/mock_ha_server.dart';
 import '../test_support/test_fixtures.dart';
 import '../test_support/test_pocketbase.dart';
@@ -13,12 +14,18 @@ Future<void> main() async {
   MockHomeAssistantServer? ha;
   TestPocketBase? pb;
   var exitCode = 1;
+  final chromeBinary = Platform.environment['CHROME_BINARY'] ?? 'google-chrome';
+  final webDriverBinary =
+      Platform.environment['CHROMEDRIVER_BINARY'] ?? 'chromedriver';
 
   try {
+    await _preflightBrowserCompatibility(
+      chromeBinary: chromeBinary,
+      chromeDriverBinary: webDriverBinary,
+    );
+
     // Start chromedriver first so it has time to fully initialise while we
     // set up MockHA, PocketBase, and seed test data.
-    final webDriverBinary =
-        Platform.environment['CHROMEDRIVER_BINARY'] ?? 'chromedriver';
     print('[infra] Starting WebDriver ($webDriverBinary)...');
     webDriver = await Process.start(webDriverBinary, ['--port=4444']);
     webDriver.stdout.drain<void>();
@@ -82,7 +89,13 @@ Future<void> main() async {
       }
     }
   } on ProcessException catch (e) {
-    stderr.writeln('[infra] Failed to start WebDriver: $e');
+    stderr.writeln('[infra] Browser tooling command failed: $e');
+    exitCode = 1;
+  } on StateError catch (e) {
+    stderr.writeln('[infra] Browser preflight failed: $e');
+    exitCode = 1;
+  } on FormatException catch (e) {
+    stderr.writeln('[infra] Browser preflight failed: $e');
     exitCode = 1;
   } on TimeoutException catch (e) {
     stderr.writeln('[infra] Timeout: $e');
@@ -104,6 +117,52 @@ Future<void> main() async {
   }
 
   exit(exitCode);
+}
+
+Future<void> _preflightBrowserCompatibility({
+  required String chromeBinary,
+  required String chromeDriverBinary,
+}) async {
+  print(
+    '[infra] Browser preflight: checking Chrome and ChromeDriver majors...',
+  );
+  final chromeVersion = await _readVersionLine(chromeBinary, ['--version']);
+  final chromeDriverVersion = await _readVersionLine(chromeDriverBinary, [
+    '--version',
+  ]);
+
+  final chromeMajor = extractChromeMajor(chromeVersion);
+  final chromeDriverMajor = extractChromeDriverMajor(chromeDriverVersion);
+  final mismatch = browserCompatibilityError(chromeMajor, chromeDriverMajor);
+  if (mismatch != null) {
+    throw StateError(
+      '$mismatch. Chrome output: "$chromeVersion". '
+      'ChromeDriver output: "$chromeDriverVersion". '
+      'Configure matching binaries with CHROME_BINARY and CHROMEDRIVER_BINARY.',
+    );
+  }
+
+  print(
+    '[infra] Browser preflight passed: Chrome major $chromeMajor '
+    'matches ChromeDriver major $chromeDriverMajor.',
+  );
+}
+
+Future<String> _readVersionLine(String binary, List<String> args) async {
+  final result = await Process.run(binary, args);
+  final combined = [
+    (result.stdout as String).trim(),
+    (result.stderr as String).trim(),
+  ].where((value) => value.isNotEmpty).join('\n');
+  if (result.exitCode != 0 || combined.isEmpty) {
+    throw ProcessException(
+      binary,
+      args,
+      'exitCode=${result.exitCode}, output="$combined"',
+      result.exitCode,
+    );
+  }
+  return combined.split('\n').first.trim();
 }
 
 Future<void> _waitForChromeDriver(Duration timeout) async {
@@ -145,27 +204,23 @@ Future<int> _runDriveTarget({
   required String grantToken,
 }) async {
   print('[infra] Launching $target...');
-  final result = await Process.start(
-    'flutter',
-    [
-      'drive',
-      '--driver=test_driver/integration_test.dart',
-      '--target=$target',
-      '--no-keep-app-running',
-      '-d',
-      'chrome',
-      '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
-      '--dart-define=HA_URL=$haUrl',
-      '--dart-define=TEST_USER_EMAIL=inttest@test.local',
-      '--dart-define=TEST_USER_PASSWORD=inttestpassword',
-      '--dart-define=TEST_HA_ID=$haId',
-      '--dart-define=TEST_HA_URL=$haUrl',
-      '--dart-define=TEST_LOCK_ID=$lockId',
-      '--dart-define=TEST_LOCK_TOKEN=$lockToken',
-      '--dart-define=TEST_GRANT_TOKEN=$grantToken',
-    ],
-    runInShell: false,
-  );
+  final result = await Process.start('flutter', [
+    'drive',
+    '--driver=test_driver/integration_test.dart',
+    '--target=$target',
+    '--no-keep-app-running',
+    '-d',
+    'chrome',
+    '--dart-define=POCKETBASE_URL=$pocketBaseUrl',
+    '--dart-define=HA_URL=$haUrl',
+    '--dart-define=TEST_USER_EMAIL=inttest@test.local',
+    '--dart-define=TEST_USER_PASSWORD=inttestpassword',
+    '--dart-define=TEST_HA_ID=$haId',
+    '--dart-define=TEST_HA_URL=$haUrl',
+    '--dart-define=TEST_LOCK_ID=$lockId',
+    '--dart-define=TEST_LOCK_TOKEN=$lockToken',
+    '--dart-define=TEST_GRANT_TOKEN=$grantToken',
+  ], runInShell: false);
 
   final earlyExit = Completer<int>();
   var sawSuccess = false;
