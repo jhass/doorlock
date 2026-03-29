@@ -30,12 +30,8 @@ Run in fail-fast mode (stop on the first failing stage):
 make test TEST_FAIL_FAST=1
 ```
 
-By default local tests run in an `linux/amd64` container so Chrome integration
-tests are consistent on both Intel and Apple Silicon hosts. Override with:
-
-```bash
-make test TEST_PLATFORM=linux/arm64
-```
+Local tests run in a `linux/amd64` container so Chrome integration tests stay
+consistent on both Intel and Apple Silicon hosts.
 
 Integration tests require Chrome and ChromeDriver major versions to match.
 The pinned Chrome for Testing version in `tool/dependency_baseline.json` must
