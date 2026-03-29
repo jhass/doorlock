@@ -29,6 +29,10 @@ void main() {
     grantRecord = await fixtures!.createGrant(lockRecord['id'] as String);
   });
 
+  setUp(() {
+    testPb!.clearPanicState();
+  });
+
   tearDownAll(() async {
     if (testPb != null) await testPb!.stop();
     if (mockHa != null) await mockHa!.stop();
@@ -55,6 +59,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Door opened!'), findsOneWidget);
+    expect(
+      testPb!.sawPanic,
+      isFalse,
+      reason: 'PocketBase panic detected: ${testPb!.panicLog}',
+    );
     expect(
       mockHa!.recordedRequests.any(
         (r) => r.method == 'POST' && r.uri.path == '/api/services/lock/open',
@@ -124,8 +133,12 @@ void main() {
       isTrue,
     );
 
-    final sawFailure = find.textContaining('Failed').evaluate().isNotEmpty;
-    final sawSuccess = find.text('Door opened!').evaluate().isNotEmpty;
-    expect(sawFailure || sawSuccess, isTrue);
+    expect(find.textContaining('Failed'), findsOneWidget);
+    expect(find.text('Door opened!'), findsNothing);
+    expect(
+      testPb!.sawPanic,
+      isFalse,
+      reason: 'PocketBase panic detected: ${testPb!.panicLog}',
+    );
   });
 }

@@ -16,6 +16,8 @@ class TestPocketBase {
   final Directory _tempDir;
   final Process _process;
   final int _port;
+  bool _sawPanic = false;
+  final StringBuffer _panicLog = StringBuffer();
 
   TestPocketBase._(this._tempDir, this._process, this._port);
 
@@ -23,6 +25,13 @@ class TestPocketBase {
 
   late PocketBase _adminClient;
   PocketBase get adminClient => _adminClient;
+  bool get sawPanic => _sawPanic;
+  String get panicLog => _panicLog.toString();
+
+  void clearPanicState() {
+    _sawPanic = false;
+    _panicLog.clear();
+  }
 
   /// Starts a fresh PocketBase instance with the real hooks and migrations.
   ///
@@ -68,15 +77,23 @@ class TestPocketBase {
       dataDir.path,
     ]);
 
-    // Pipe output so failures are visible in test output.
-    process.stdout.transform(const SystemEncoding().decoder).listen(
-      (line) => stderr.write('[PB] $line'),
-    );
-    process.stderr.transform(const SystemEncoding().decoder).listen(
-      (line) => stderr.write('[PB] $line'),
-    );
-
     final instance = TestPocketBase._(tempDir, process, port);
+
+    // Pipe output so failures are visible in test output.
+    process.stdout.transform(const SystemEncoding().decoder).listen((line) {
+      if (line.contains('[PANIC RECOVER]')) {
+        instance._sawPanic = true;
+        instance._panicLog.write(line);
+      }
+      stderr.write('[PB] $line');
+    });
+    process.stderr.transform(const SystemEncoding().decoder).listen((line) {
+      if (line.contains('[PANIC RECOVER]')) {
+        instance._sawPanic = true;
+        instance._panicLog.write(line);
+      }
+      stderr.write('[PB] $line');
+    });
 
     // Wait for health endpoint.
     await instance._waitForReady();

@@ -128,5 +128,15 @@ routerAdd("POST", "/doorlock/locks/{token}/open", (e) => {
       }
     })
 
-    e.noContent(response.status)
+  const statusCode = Number(response.statusCode ?? response.status ?? 0)
+  if (statusCode >= 200 && statusCode < 300) {
+    // PocketBase NoContent requires a valid HTTP status code.
+    e.noContent(204)
+    return
+  }
+
+  e.json(502, {
+    message: "Failed to open lock in Home Assistant",
+    home_assistant_status: statusCode
+  })
 })
