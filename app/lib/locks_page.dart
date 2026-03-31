@@ -77,9 +77,11 @@ class _LocksPageState extends State<LocksPage> {
       final response = await _pb.send(
         '/doorlock/homeassistant/${widget.homeAssistantId}/locks',
       );
+      final addedLockIds = _locks.map((l) => (l as Map)['entity_id']).toSet();
       setState(() {
-        _availableLocks = List<Map<String, dynamic>>.from(response as List);
-        _showAddLock = true;
+        _availableLocks = List<Map<String, dynamic>>.from(
+          (response as List).where((lock) => !addedLockIds.contains(lock['id'])).toList()
+        );
       });
     } on ClientException catch (e) {
       if (e.statusCode == 401) {
@@ -92,6 +94,7 @@ class _LocksPageState extends State<LocksPage> {
     } catch (e) {
       setState(() { _addLockError = 'Failed to fetch available locks: $e'; });
     }
+    setState(() { _showAddLock = true; });
   }
 
   Future<void> _addLock(Map<String, dynamic> lock) async {
