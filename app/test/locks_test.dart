@@ -21,7 +21,26 @@ void main() {
 
   setUpAll(() async {
     HttpOverrides.global = null;
-    mockHa = await MockHomeAssistantServer.start();
+    mockHa = await MockHomeAssistantServer.start(
+      entities: [
+        {
+          'entity_id': 'lock.front_door',
+          'state': 'locked',
+          'attributes': {
+            'friendly_name': 'Front Door',
+            'supported_features': 1,
+          },
+        },
+        {
+          'entity_id': 'lock.side_door',
+          'state': 'locked',
+          'attributes': {
+            'friendly_name': 'Side Door',
+            'supported_features': 1,
+          },
+        },
+      ],
+    );
     testPb = await TestPocketBase.start();
     fixtures = TestFixtures(adminClient: testPb!.adminClient, mockHa: mockHa!);
     final userId = await fixtures!.createUser();
@@ -63,7 +82,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
 
-    expect(find.text('Front Door'), findsOneWidget);
+    expect(find.text('Front Door'), findsNothing);
+    expect(find.text('Side Door'), findsOneWidget);
+    expect(find.text('lock.side_door'), findsOneWidget);
 
     expect(
       mockHa!.recordedRequests.any(
@@ -85,7 +106,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Front Door').last);
+    await tester.tap(find.text('Side Door'));
     await tester.pumpAndSettle();
 
     final countAfter = (await testPb!.adminClient
