@@ -15,7 +15,7 @@ void main() {
     await SessionStorage.clearSession();
   });
 
-  testWidgets('navigates into locks page and sees HA entity list on Add Lock', (
+  testWidgets('navigates into locks page and sees no addable entities when all are already added', (
     tester,
   ) async {
     await tester.pumpWidget(const MyApp());
@@ -40,7 +40,10 @@ void main() {
     await tester.tap(find.byTooltip('Add Lock'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Front Door'), findsOneWidget);
+    // In integration fixtures, Front Door is the only HA lock and is already
+    // seeded in PocketBase, so Add Lock should be empty.
+    expect(find.text('Front Door'), findsNothing);
+    expect(find.byType(ListTile), findsNothing);
   });
 
   testWidgets('adds a lock and QR icon is visible', (tester) async {

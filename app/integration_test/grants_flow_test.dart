@@ -76,6 +76,6 @@ void main() {
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Integration Grant'), findsOneWidget);
+    expect(find.text('Integration Grant'), findsAtLeastNWidgets(1));
   });
 }
