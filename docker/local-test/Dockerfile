@@ -1,4 +1,4 @@
-FROM ghcr.io/cirruslabs/flutter:3.41.6
+FROM ghcr.io/cirruslabs/flutter:3.41.9
 
 ARG CFT_VERSION=147.0.7727.24
 ARG PB_VERSION=0.36.8
