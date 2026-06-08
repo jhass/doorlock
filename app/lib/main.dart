@@ -315,26 +315,11 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
     }
   }
 
-  Future<void> _addHomeAssistant(String url, String frontendCallback) async {
+  Future<void> _addHomeAssistant(String url) async {
     final pb = PBScope.of(context);
     setState(() { _addError = null; });
     try {
-      final resp = await pb.send(
-        '/doorlock/homeassistant',
-        method: 'POST',
-        body: {
-          'url': url,
-          'frontend_callback': frontendCallback,
-        },
-      );
-      // If auth_url is returned, redirect to it using url_launcher
-      if (resp is Map && resp['auth_url'] != null) {
-        final authUrl = resp['auth_url'];
-        final uri = Uri.parse(authUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      }
+      await _authHomeassistant(pb, url);
       await _fetchAssistants();
       if (mounted) Navigator.of(context).pop();
     } on ClientException catch (e) {
@@ -383,4 +368,37 @@ class _HomeAssistantsPageWrapperState extends State<HomeAssistantsPageWrapper> {
       onAdd: _showAddPage,
     );
   }
+}
+
+Future<void> handleExpiredAuth(BuildContext context, ClientException e, String homeassistantUrl) async {
+   if (e.statusCode == 403 && e.response['message'] == 'Access token expired and failed to refresh') {
+    _authHomeassistant(PBScope.of(context), homeassistantUrl, reauth: true);
+  }
+}
+
+Future<void> _authHomeassistant(PocketBase pb, String url, {bool reauth = false}) async {
+  final response = await pb.send(
+    '/doorlock/homeassistant',
+    method: 'POST',
+    body: {
+      'url': url,
+      'frontend_callback': _getFrontendCallback(),
+      'reauth': reauth,
+    },
+  );
+
+  // If auth_url is returned, redirect to it using url_launcher
+  if (response is Map && response['auth_url'] != null) {
+    final authUrl = response['auth_url'];
+    final uri = Uri.parse(authUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+}
+
+String _getFrontendCallback() {
+  // For web, use current URL as callback
+  // For mobile, you may want to use a custom scheme or deep link
+  return Uri.base.toString();
 }

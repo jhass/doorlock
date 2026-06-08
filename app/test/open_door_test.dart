@@ -55,7 +55,7 @@ void main() {
     await tester.pumpWidget(buildOpenDoorPage(grantToken, lockToken));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Front Door'));
     await tester.pumpAndSettle();
 
     expect(find.text('Door opened!'), findsOneWidget);
@@ -85,7 +85,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Front Door'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Failed'), findsOneWidget);
@@ -104,7 +104,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Front Door'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Failed'), findsOneWidget);
@@ -123,7 +123,7 @@ void main() {
     await tester.pumpWidget(buildOpenDoorPage(grantToken, lockToken));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Door'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Open Front Door'));
     await tester.pumpAndSettle();
 
     expect(

@@ -1,3 +1,4 @@
+import 'package:doorlock/main.dart' show handleExpiredAuth;
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -84,6 +85,9 @@ class _LocksPageState extends State<LocksPage> {
         );
       });
     } on ClientException catch (e) {
+      if (mounted) {
+        handleExpiredAuth(context, e, widget.homeAssistantUrl);
+      }
       if (e.statusCode == 401) {
         if (mounted) {
           Navigator.of(context).pushReplacementNamed('/');

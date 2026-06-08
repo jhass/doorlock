@@ -11,6 +11,10 @@ module.exports = {
         method: "POST",
         body: body
       })
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        console.error("Failed to refresh access token", response)
+        return null
+      }
       homeassistant.set("access_token", response.json.access_token)
       homeassistant.set("access_token_expires_at", new Date(Date.now() + response.json.expires_in * 1000))
       $app.save(homeassistant)

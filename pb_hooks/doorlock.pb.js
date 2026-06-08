@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 routerAdd("POST", "/doorlock/homeassistant", (e) => {
-  const params = new DynamicModel({url: "", frontend_callback: ""})
+  const params = new DynamicModel({url: "", frontend_callback: "", reauth: false})
   e.bindBody(params)
   const collection = $app.findCollectionByNameOrId("doorlock_homeassistants")
   let record = null
@@ -14,7 +14,7 @@ routerAdd("POST", "/doorlock/homeassistant", (e) => {
     record = $app.findFirstRecordByData(collection.name, "url", params.url)
   }
 
-  if (record.get("refresh_token")) {
+  if (record.get("refresh_token") && !params.reauth) {
     e.json(200, {message: "Already setup"})
   } else {
     const url = record.get("url"),
@@ -65,13 +65,28 @@ routerAdd("GET", "/doorlock/homeassistant/{id}/locks", (e) => {
   }
 
   const helpers = require(`${__hooks}/doorlock.helpers.js`),
-    response = $http.send({
-      url: `${homeassistant.get("url")}/api/states`,
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${helpers.accessToken(homeassistant)}`
-      }
+    accessToken = helpers.accessToken(homeassistant)
+  if (!accessToken) {
+    e.json(403, { message: "Access token expired and failed to refresh" })
+    return
+  }
+
+  const response = $http.send({
+    url: `${homeassistant.get("url")}/api/states`,
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  })
+
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    console.error("Failed to fetch locks from Home Assistant", response)
+    e.json(502, {
+      message: "Failed to fetch locks from Home Assistant",
+      home_assistant_status: response.statusCode
     })
+    return
+  }
 
   const locks = response.json
     .filter(item => item.entity_id.startsWith("lock."))
@@ -116,17 +131,23 @@ routerAdd("POST", "/doorlock/locks/{token}/open", (e) => {
   }
 
   const helpers = require(`${__hooks}/doorlock.helpers.js`),
-    response = $http.send({
-      url: `${homeassistant.get("url")}/api/services/lock/open`,
-      method: "POST",
-      body: JSON.stringify({
-        entity_id: lock.get("entity_id")
-      }),
-      headers: {
-        Authorization: `Bearer ${helpers.accessToken(homeassistant)}`,
-        "Content-Type": "application/json"
-      }
-    })
+    accessToken = helpers.accessToken(homeassistant)
+  if (!accessToken) {
+    e.json(403, {message: "Access token expired and failed to refresh"})
+    return
+  }
+
+  const response = $http.send({
+    url: `${homeassistant.get("url")}/api/services/lock/open`,
+    method: "POST",
+    body: JSON.stringify({
+      entity_id: lock.get("entity_id")
+    }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    }
+  })
 
   const statusCode = Number(response.statusCode ?? response.status ?? 0)
   if (statusCode >= 200 && statusCode < 300) {
